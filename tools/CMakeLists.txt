@@ -11,6 +11,7 @@ else(MINIMAL_BUILD)
         obenergy
         obfit
         obgen
+        obgraphsym
         obminimize
         obprobe
         obprop

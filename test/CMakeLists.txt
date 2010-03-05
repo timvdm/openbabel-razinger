@@ -19,6 +19,8 @@ set(tests
     cistrans
     stereoperception
     graphsym
+    stereoisomer
+    permutation
    )
 
 set(TEST_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})

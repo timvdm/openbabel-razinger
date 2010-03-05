@@ -54,6 +54,7 @@ set(stereo_srcs
     stereo/tetrahedral.cpp
     stereo/perception.cpp
     stereo/facade.cpp
+    stereo/stereoisomer.cpp
 )
 
 set(openbabel_srcs
@@ -91,6 +92,7 @@ set(openbabel_srcs
     parsmart.cpp
     patty.cpp
     phmodel.cpp
+    permutation.cpp
     plugin.cpp
     pointgroup.cpp
     rand.cpp
@@ -102,6 +104,16 @@ set(openbabel_srcs
     transform.cpp
     typer.cpp
     obmolecformat.cpp
+)
+
+set(bliss_srcs
+    stereo/bliss/graph.cc
+    stereo/bliss/heap.cc
+    stereo/bliss/orbit.cc
+    stereo/bliss/partition.cc
+    stereo/bliss/timer.cc
+    stereo/bliss/uintseqhash.cc
+    stereo/bliss/utils.cc
 )
 
 if(BUILD_SHARED)
@@ -121,6 +133,7 @@ set(openbabel_library_srcs
                 ${depict_srcs}
                 ${math_srcs}
                 ${stereo_srcs}
+                ${bliss_srcs}
                 ${headers}
                 "${openbabel_BINARY_DIR}/include/openbabel/babelconfig.h"
 		)
