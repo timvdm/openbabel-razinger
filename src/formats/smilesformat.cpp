@@ -3513,7 +3513,7 @@ int configParity(const OBTetrahedralStereo::Config &config)
 {
   std::vector<unsigned long> refs = config.refs;
   refs.insert(refs.begin(), config.from); // doesn't matter if view is from or towards, will be sorted anyway
-  std::sort(refs.begin(), refs.end());
+  //std::sort(refs.begin(), refs.end());
 
   bool p = (OBStereo::NumInversions(refs) % 2) ? true : false;
         
@@ -3522,6 +3522,22 @@ int configParity(const OBTetrahedralStereo::Config &config)
   else
     return -1;
 }
+
+struct ConfigHolder {
+  OBTetrahedralStereo::Config idConfig;
+  OBTetrahedralStereo::Config canConfig;
+  OBTetrahedralStereo::Config symConfig;
+  unsigned int index;
+};
+
+struct compareConfigHolder {
+  bool operator()(const ConfigHolder &a, const ConfigHolder &b) const
+  {
+    if (a.canConfig.center < b.canConfig.center)
+      return true;
+    return false;    
+  }
+};
 
 #define TRUE_CANONICAL 1
 
@@ -3559,6 +3575,7 @@ int configParity(const OBTetrahedralStereo::Config &config)
 #ifdef TRUE_CANONICAL
       // XXXXXXXXXXXXXXXXXXXXXXXXXXX
       OBStereoisomer isomers(&mol);
+      /*
       cout << "enantiomers:" << endl;
       const std::vector<OBStereoisomer::Enantiomer> &enantiomers = isomers.enantiomers();
       for (unsigned int i = 0; i < enantiomers.size(); ++i) {
@@ -3590,8 +3607,8 @@ int configParity(const OBTetrahedralStereo::Config &config)
           cout << endl;
         }
       }
+      */
 
-      OBStereoisomer::ParityVec molParities;
 
       OBStereoFacade stereoFacade(&mol);
       std::vector<unsigned int> symcl;
@@ -3599,41 +3616,163 @@ int configParity(const OBTetrahedralStereo::Config &config)
       gs2.GetSymmetry(symcl, false);
 
       // find atom ids for all tetrahedral centers
-      std::vector<OBTetrahedralStereo::Config> configs;
+      std::vector<ConfigHolder> configs;
+
+      //std::vector<OBTetrahedralStereo::Config> idConfigs;
+      //std::vector<OBTetrahedralStereo::Config> symConfigs;
+      //std::vector<OBTetrahedralStereo::Config> canConfigs;
       FOR_ATOMS_OF_MOL (atom, mol) {
         if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
           OBTetrahedralStereo::Config config = stereoFacade.GetTetrahedralStereo(atom->GetId())->GetConfig();
-//          IdsToCanonical(&mol, config, canonical_order);
- //         IdsToSymClasses(&mol, config, symcl);
-          configs.push_back(config);
+          ConfigHolder holder;
+          holder.idConfig = config;
+          OBTetrahedralStereo::Config canConfig = config;
+          IdsToCanonical(&mol, canConfig, canonical_order);
+          holder.canConfig = canConfig;
+          OBTetrahedralStereo::Config symConfig = config;
+          IdsToSymClasses(&mol, symConfig, symmetry_classes);
+          holder.symConfig = symConfig;
+
+          holder.index = configs.size();
+          configs.push_back(holder);
         }
       }
+      
+      std::sort(configs.begin(), configs.end(), compareConfigHolder());
+
+      OBStereoisomer::ParityVec idParities, canParities, symParities;
+      cout << "ERROR parities:  ids = ";
+      for (unsigned int i = 0; i < configs.size(); ++i) {
+        idParities.push_back(configParity(configs.at(i).idConfig));
+        cout << idParities.back() << " ";
+      }
+      cout << "    canonical =  ";
+      for (unsigned int i = 0; i < configs.size(); ++i) {
+        canParities.push_back(configParity(configs.at(i).canConfig));
+        cout << canParities.back() << " ";
+      }
+      cout << "    symmetry =  ";
+      for (unsigned int i = 0; i < configs.size(); ++i) {
+        symParities.push_back(configParity(configs.at(i).symConfig));
+        cout << symParities.back() << " ";
+      }
+      cout << "    atomIds = ";
+      for (unsigned int i = 0; i < configs.size(); ++i) {
+        cout << configs.at(i).idConfig.center << " ";
+      }
+      cout << "    canonical =  ";
+      for (unsigned int i = 0; i < configs.size(); ++i) {
+        cout << configs.at(i).canConfig.center << " ";
+      }
+      cout << "    index =  ";
+      for (unsigned int i = 0; i < configs.size(); ++i) {
+        cout << configs.at(i).index << " ";
+      }
+      cout << endl;
+      
+      std::vector<int> pars(configs.size());
+      for (unsigned int i = 0; i < configs.size(); ++i) {
+        pars[configs.at(i).index] = canParities.at(i);
+      }
+      cout << "ERROR  pars: ";
+      for (unsigned int i = 0; i < pars.size(); ++i)
+        cout << pars.at(i) << " ";
+      cout << endl;
+
+      const std::vector<OBStereoisomer::Diastereomer> &diastereomers = isomers.diastereomers();
+      std::vector<OBStereoisomer::Diastereomer> diastereomersCopy = isomers.diastereomers();
+      for (unsigned int i = 0; i < diastereomers.size(); ++i) {
+        for (unsigned int j = 0; j < diastereomers.at(i).parities.size(); ++j) {
+          for (unsigned int k = 0; k < diastereomers.at(i).parities.at(j).size(); ++k) {
+            diastereomersCopy.at(i).parities.at(j).at(configs.at(k).index) = 
+              diastereomers.at(i).parities.at(j).at(k);
+          }
+        }
+      }
+
+      cout << "ERROR ";
+      for (unsigned int i = 0; i < diastereomersCopy.size(); ++i) {
+        cout << "diastereomer " << i+1 << ": ";
+        for (unsigned int j = 0; j < diastereomersCopy.at(i).parities.size(); ++j) {
+          for (unsigned int k = 0; k < diastereomersCopy.at(i).parities.at(j).size(); ++k)
+            cout << diastereomersCopy.at(i).parities.at(j).at(k) << " ";
+          cout << "    ";
+        }
+      }
+      cout << endl;
+
+
+
+  
+     /* 
+      OBStereoisomer::ParityVec invCanParities;
+      for (unsigned int i = 0; i < canParities.size(); ++i)
+        invCanParities.push_back(-canParities.at(i));
+
+      if (invCanParities > canParities) {
+        cout << "ERROR --> permutate" << endl;
+ 
+        FOR_ATOMS_OF_MOL (atom, mol) {
+          if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
+            OBTetrahedralStereo *ts = stereoFacade.GetTetrahedralStereo(atom->GetId());
+            OBTetrahedralStereo::Config config = ts->GetConfig();
+            OBStereo::Permutate(config.refs, 0, 1);
+            ts->SetConfig(config);         
+          }
+        }
+      }
+      */
+
+
+      /*
+      std::vector<unsigned int> atomIndexes;
+      for (unsigned int i = 0; i < configs.size(); ++i) {
+        atomIndexes.push_back(mol.GetAtomById(configs.at(i).center)->GetIndex()+1);
+      }
+      
+      
       std::sort(configs.begin(), configs.end(), compare_config());
 
-      //for (unsigned int i = 0; i < configs.size(); ++i)
-        //IdsToSymClasses(&mol, configs.at(i), symmetry_classes);
+  //    for (unsigned int i = 0; i < configs.size(); ++i)
+//        IdsToSymClasses(&mol, configs.at(i), symmetry_classes);
         //IdsToSymClasses(&mol, configs.at(i), canonical_order);
 
+      //std::map<unsigned int, int> atomIdxToParity; 
       OBStereoisomer::ParityVec molParity;
       for (unsigned int i = 0; i < configs.size(); ++i) {
         cout << configs.at(i) << endl;
         int parity = configParity(configs.at(i));
         molParity.push_back(parity);
+        //atomIdxToParity[mol.GetAtomById(configs.at(i).center)->GetIndex()+1] = parity;
       }
+      cout << "CURRENT_PARITY: ";
+      for (unsigned int i = 0; i < molParity.size(); ++i)
+        cout << molParity.at(i) << " ";
+      cout << endl;
 
+      molParities = molParity;
+*/
 
-
+/*
       PermutationGroup aut = isomers.automorphisms();
       cout << "Stereo parity vectors:" << endl;
       for (unsigned int i = 0; i < aut.size(); ++i) {
         const Permutation &p = aut.at(i);
 
-   
+        OBStereoisomer::ParityVec tmp;
         for (unsigned int j = 0; j < p.map.size(); ++j) {
-        
+          if (std::find(atomIndexes.begin(), atomIndexes.end(), p.map.at(j)) == atomIndexes.end())
+            continue;
+          tmp.push_back( atomIdxToParity[p.map.at(j)] );
         }
 
-
+        cout << "molParity: ";
+        for (unsigned int i = 0; i < tmp.size(); ++i)
+          cout << tmp.at(i) << " ";
+        cout << endl;
+      }
+     */ 
+/*
         cout << "Sorted Config structs:" << endl;
         for (unsigned int i = 0; i < configs.size(); ++i) {
           cout << configs.at(i) << endl;
@@ -3647,7 +3786,9 @@ int configParity(const OBTetrahedralStereo::Config &config)
           cout << molParity.at(i) << " ";
         cout << endl;
       }
+*/
 
+      /*
       for (unsigned int i = 0; i < diastereomers.size(); ++i) {
         OBStereoisomer::ParityVec minimum;        
         // foreach ParityVec
@@ -3677,14 +3818,6 @@ int configParity(const OBTetrahedralStereo::Config &config)
             minimum = diastereomers.at(i).parities.at(j);      
         }
 
-        cout << "minimum: ";
-        for (unsigned int k = 0; k < minimum.size(); ++k)
-          cout << minimum.at(k) << " ";
-        cout << endl;
-
-        if (minimum == molParities)
-          cout << "MINIMUM == MOL" << endl;
-
         unsigned int idx = 0;
         FOR_ATOMS_OF_MOL (atom, mol) {
           if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
@@ -3702,6 +3835,7 @@ int configParity(const OBTetrahedralStereo::Config &config)
           }
         }
       }
+      */
 #endif // TRUE_CANONICAL
        
 
