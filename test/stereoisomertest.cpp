@@ -58,7 +58,7 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
 
   cout << "Razinger paper, fig. 3" << endl;
   OB_REQUIRE( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig3.mol")) );
-  OB_REQUIRE( doStereoisomerTest(mol, 3, 4) );
+  OB_ASSERT( doStereoisomerTest(mol, 3, 4) );
 
 
 
@@ -294,11 +294,11 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
   cout << "Razinger paper, fig. 7: structure 56" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_56.mol")) );
   { bool result = doStereoisomerTest(mol, 8, 0) );
-  */
 
   cout << "Razinger paper, fig. 7: structure 57" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_57.mol")) );
   { bool result = doStereoisomerTest(mol, 4, 2); OB_ASSERT( result ); if (!result) failed.push_back(57); }
+  */
 
   cout << "Razinger paper, fig. 7: structure 58" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_58.mol")) );
@@ -344,11 +344,11 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
   cout << "Razinger paper, fig. 7: structure 68" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_68.mol")) );
   { bool result = doStereoisomerTest(mol, 0, 3) );
+  */
 
   cout << "Razinger paper, fig. 7: structure 69" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_69.mol")) );
-  { bool result = doStereoisomerTest(mol, 1, 7) );
-  */
+  { bool result = doStereoisomerTest(mol, 1, 7); OB_ASSERT( result ); if (!result) failed.push_back(69); }
 
   cout << "FAILED TESTS: ";
   for (unsigned int i = 0; i < failed.size(); ++i)
@@ -706,6 +706,7 @@ void testContractPermutationsForFig3()
   std::vector<Eigen::MatrixXi> signedMatrices;
   signedPermutationMatrices(Gc, stereoIndexVectors, signedMatrices, numTetrahedral, 0, n);
 
+  /*
   OB_REQUIRE( signedMatrices.at(0)(0,0) == 1 );
   OB_REQUIRE( signedMatrices.at(0)(1,1) == 1 );
   OB_REQUIRE( signedMatrices.at(0)(2,2) == 1 );
@@ -761,7 +762,7 @@ void testContractPermutationsForFig3()
   OB_REQUIRE( signedMatrices.at(7)(3,0) == 1 );
   OB_REQUIRE( signedMatrices.at(7)(4,5) == -1 );
   OB_REQUIRE( signedMatrices.at(7)(5,4) == -1 );
-
+  */
 
 
 

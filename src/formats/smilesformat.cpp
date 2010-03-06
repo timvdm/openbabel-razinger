@@ -27,6 +27,7 @@ GNU General Public License for more details.
 #include <openbabel/stereo/cistrans.h>
 #include <openbabel/stereo/squareplanar.h>
 #include <openbabel/stereo/stereo.h>
+#include <openbabel/stereo/stereoisomer.h>
 
 #include <openbabel/graphsym.h>
 
@@ -3435,6 +3436,94 @@ namespace OpenBabel {
     }
   }
 
+void IdsToSymClasses(OBMol *mol, OBTetrahedralStereo::Config &config, 
+    const std::vector<unsigned int> &symClasses)
+{
+  OBAtom *atom;
+  // center
+  atom = mol->GetAtomById(config.center);
+  if (atom) {
+    if (atom->IsHydrogen())
+      config.center = OBStereo::ImplicitRef;
+    else
+      config.center = symClasses.at(atom->GetIndex());
+  }
+  // from/towards
+  atom = mol->GetAtomById(config.from);
+  if (atom) {
+    if (atom->IsHydrogen())
+      config.from = OBStereo::ImplicitRef;
+    else
+      config.from = symClasses.at(atom->GetIndex());
+  }
+  // refs
+  for (unsigned int i = 0; i < config.refs.size(); ++i) {
+    atom = mol->GetAtomById(config.refs.at(i));
+    if (atom) {
+      if (atom->IsHydrogen())
+        config.refs[i] = OBStereo::ImplicitRef;
+      else
+        config.refs[i] = symClasses.at(atom->GetIndex());
+    }
+  }
+}
+
+void IdsToCanonical(OBMol *mol, OBTetrahedralStereo::Config &config, 
+    const std::vector<unsigned int> &canonical_labels)
+{
+  OBAtom *atom;
+  // center
+  atom = mol->GetAtomById(config.center);
+  if (atom) {
+    if (atom->IsHydrogen())
+      config.center = OBStereo::ImplicitRef;
+    else
+      config.center = canonical_labels.at(atom->GetIndex());
+  }
+  // from/towards
+  atom = mol->GetAtomById(config.from);
+  if (atom) {
+    if (atom->IsHydrogen())
+      config.from = OBStereo::ImplicitRef;
+    else
+      config.from = canonical_labels.at(atom->GetIndex());
+  }
+  // refs
+  for (unsigned int i = 0; i < config.refs.size(); ++i) {
+    atom = mol->GetAtomById(config.refs.at(i));
+    if (atom) {
+      if (atom->IsHydrogen())
+        config.refs[i] = OBStereo::ImplicitRef;
+      else
+        config.refs[i] = canonical_labels.at(atom->GetIndex());
+    }
+  }
+}
+
+struct compare_config {
+  bool operator()(const OBTetrahedralStereo::Config &lhs, const OBTetrahedralStereo::Config &rhs) const
+  {
+    if (lhs.center < rhs.center)
+      return true;
+    return false;
+  }
+};
+
+int configParity(const OBTetrahedralStereo::Config &config)
+{
+  std::vector<unsigned long> refs = config.refs;
+  refs.insert(refs.begin(), config.from); // doesn't matter if view is from or towards, will be sorted anyway
+  std::sort(refs.begin(), refs.end());
+
+  bool p = (OBStereo::NumInversions(refs) % 2) ? true : false;
+        
+  if (p)
+    return 1;
+  else
+    return -1;
+}
+
+#define TRUE_CANONICAL 1
 
   /***************************************************************************
    * FUNCTION: CreateFragCansmiString
@@ -3466,6 +3555,156 @@ namespace OpenBabel {
       OBGraphSym gs(&mol, &frag_atoms);
       gs.GetSymmetry(symmetry_classes);
       gs.CanonicalLabels(canonical_order);
+
+#ifdef TRUE_CANONICAL
+      // XXXXXXXXXXXXXXXXXXXXXXXXXXX
+      OBStereoisomer isomers(&mol);
+      cout << "enantiomers:" << endl;
+      const std::vector<OBStereoisomer::Enantiomer> &enantiomers = isomers.enantiomers();
+      for (unsigned int i = 0; i < enantiomers.size(); ++i) {
+        cout << "  enantiomer " << i+1 << endl;
+        cout << "    parities: " << endl;
+        for (unsigned int j = 0; j < enantiomers.at(i).parities.size(); ++j) {
+          cout << "    ";
+          for (unsigned int k = 0; k < enantiomers.at(i).parities.at(j).size(); ++k)
+            cout << enantiomers.at(i).parities.at(j).at(k) << " ";
+          cout << endl;
+        }
+        cout << "    inverseParities:";
+        for (unsigned int j = 0; j < enantiomers.at(i).inverseParities.size(); ++j) {
+          cout << "    ";
+          for (unsigned int k = 0; k < enantiomers.at(i).inverseParities.at(j).size(); ++k)
+            cout << enantiomers.at(i).inverseParities.at(j).at(k) << " ";
+          cout << endl;
+        }
+ 
+      }
+      const std::vector<OBStereoisomer::Diastereomer> &diastereomers = isomers.diastereomers();
+      for (unsigned int i = 0; i < diastereomers.size(); ++i) {
+        cout << "  diastereomer " << i+1 << endl;
+        cout << "    parities: " << endl;
+        for (unsigned int j = 0; j < diastereomers.at(i).parities.size(); ++j) {
+          cout << "    ";
+          for (unsigned int k = 0; k < diastereomers.at(i).parities.at(j).size(); ++k)
+            cout << diastereomers.at(i).parities.at(j).at(k) << " ";
+          cout << endl;
+        }
+      }
+
+      OBStereoisomer::ParityVec molParities;
+
+      OBStereoFacade stereoFacade(&mol);
+      std::vector<unsigned int> symcl;
+      OBGraphSym gs2(&mol);
+      gs2.GetSymmetry(symcl, false);
+
+      // find atom ids for all tetrahedral centers
+      std::vector<OBTetrahedralStereo::Config> configs;
+      FOR_ATOMS_OF_MOL (atom, mol) {
+        if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
+          OBTetrahedralStereo::Config config = stereoFacade.GetTetrahedralStereo(atom->GetId())->GetConfig();
+//          IdsToCanonical(&mol, config, canonical_order);
+ //         IdsToSymClasses(&mol, config, symcl);
+          configs.push_back(config);
+        }
+      }
+      std::sort(configs.begin(), configs.end(), compare_config());
+
+      //for (unsigned int i = 0; i < configs.size(); ++i)
+        //IdsToSymClasses(&mol, configs.at(i), symmetry_classes);
+        //IdsToSymClasses(&mol, configs.at(i), canonical_order);
+
+      OBStereoisomer::ParityVec molParity;
+      for (unsigned int i = 0; i < configs.size(); ++i) {
+        cout << configs.at(i) << endl;
+        int parity = configParity(configs.at(i));
+        molParity.push_back(parity);
+      }
+
+
+
+      PermutationGroup aut = isomers.automorphisms();
+      cout << "Stereo parity vectors:" << endl;
+      for (unsigned int i = 0; i < aut.size(); ++i) {
+        const Permutation &p = aut.at(i);
+
+   
+        for (unsigned int j = 0; j < p.map.size(); ++j) {
+        
+        }
+
+
+        cout << "Sorted Config structs:" << endl;
+        for (unsigned int i = 0; i < configs.size(); ++i) {
+          cout << configs.at(i) << endl;
+
+          int parity = configParity(configs.at(i));
+          molParity.push_back(parity);
+        }
+
+        cout << "molParity: ";
+        for (unsigned int i = 0; i < molParity.size(); ++i)
+          cout << molParity.at(i) << " ";
+        cout << endl;
+      }
+
+      for (unsigned int i = 0; i < diastereomers.size(); ++i) {
+        OBStereoisomer::ParityVec minimum;        
+        // foreach ParityVec
+        bool foundDiastereomer = false;
+        for (unsigned int j = 0; j < diastereomers.at(i).parities.size(); ++j) {
+          if (diastereomers.at(i).parities.at(j) == molParities) {
+            foundDiastereomer = true;
+            break;
+          }
+        }
+
+        if (!foundDiastereomer)
+          continue;
+
+        for (unsigned int j = 0; j < diastereomers.at(i).parities.size(); ++j) {
+          cout << "checking: ";
+          for (unsigned int k = 0; k < diastereomers.at(i).parities.at(j).size(); ++k)
+            cout << diastereomers.at(i).parities.at(j).at(k) << " ";
+          cout << endl;
+
+          if (minimum.empty()) {
+            minimum = diastereomers.at(i).parities.at(j);
+            continue;
+          }
+
+          if (diastereomers.at(i).parities.at(j) < minimum)
+            minimum = diastereomers.at(i).parities.at(j);      
+        }
+
+        cout << "minimum: ";
+        for (unsigned int k = 0; k < minimum.size(); ++k)
+          cout << minimum.at(k) << " ";
+        cout << endl;
+
+        if (minimum == molParities)
+          cout << "MINIMUM == MOL" << endl;
+
+        unsigned int idx = 0;
+        FOR_ATOMS_OF_MOL (atom, mol) {
+          if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
+            if (minimum[idx] == molParities[idx]) {
+              idx++;
+              continue;
+            }
+
+            // invert stereocenter if needed
+            OBTetrahedralStereo *ts = stereoFacade.GetTetrahedralStereo(atom->GetId());
+            OBTetrahedralStereo::Config config = ts->GetConfig();
+            OBStereo::Permutate(config.refs, 0, 1);
+            ts->SetConfig(config);         
+            idx++;
+          }
+        }
+      }
+#endif // TRUE_CANONICAL
+       
+
     }
     else {
       if (_pconv->IsOption("C")) {      // "C" == "anti-canonical form"

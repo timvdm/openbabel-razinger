@@ -94,8 +94,16 @@ namespace OpenBabel {
       }
 
       for (int i = 0; i < n; ++i) {
+        //P(i, renum[map.at(i)]) = 1;
         P(renum[map.at(i)], i) = 1;
       }
+      /*
+      for (int i = 0; i < n; ++i) {
+        //P(map.at(i)-1, i) = 1;
+        P(i, map.at(i)-1) = 1;
+      }
+       */
+
 
       return P;
     }

@@ -10,22 +10,18 @@
 #include <algorithm>
 #include <cassert>
 
-#include <Eigen/Core>
-
-
-
 namespace OpenBabel {
 
-  /**
-   * The bliss callback function. This function will be called for each
-   * generator.
-   */
   void callback(void *param, unsigned int n, const unsigned int *aut)
   {
     // construct vector with elements
     std::vector<unsigned int> elements;
-    for (unsigned int i = 0; i < n; ++i)
+    //cout << "Generator: ";
+    for (unsigned int i = 0; i < n; ++i) {
+      //cout << aut[i] + 1 << " ";
       elements.push_back(aut[i]+1);
+    }
+    //cout << endl;
 
     // add the generator
     PermutationGroup *generators = static_cast<PermutationGroup*>(param);
@@ -38,11 +34,22 @@ namespace OpenBabel {
    */
   void addInverses(PermutationGroup &G)
   {
+    //cout << "addInverses..." << endl;
     unsigned int size = G.permutations.size();
     for (unsigned int i = 0; i < size; ++i) {
-      Permutation inv_p(G.permutations.at(i).matrix().transpose());
-      if (!G.contains(inv_p))
+      int n = G.at(i).map.size();
+      Eigen::MatrixXi P = Eigen::MatrixXi::Zero(n, n);
+      for (int j = 0; j < n; ++j) {
+        P(j, G.at(i).map.at(j)-1) = 1;
+      }
+ 
+      Permutation inv_p(P.transpose());
+      //cout << "matrix:" << endl; cout << G.permutations.at(i).matrix() << endl;
+      //inv_p.print();
+      if (!G.contains(inv_p)) {
+        //cout << "--------------> found inverse" << endl;
         G.add(inv_p); 
+      }
     }
   }
 
@@ -52,14 +59,18 @@ namespace OpenBabel {
    */
   void addProducts(PermutationGroup &G)
   {
+    //cout << "addProducts..." << endl;
     for (unsigned int i = 0; i < G.permutations.size(); ++i) {
       for (unsigned int j = 0; j < G.permutations.size(); ++j) {
         if (i >= j)
           continue;
 
         Permutation p = G.permutations.at(i) * G.permutations.at(j);
-        if (!G.contains(p))
+        //p.print();
+        if (!G.contains(p)) {
+          //cout << "-------------> found product" << endl;
           G.add(p);
+        }
       }
     }
   }
@@ -81,6 +92,7 @@ namespace OpenBabel {
     bliss::Stats stats;
     g.find_automorphisms(stats, &callback, &generators);
 
+    cout << "# Automorphisms:" << stats.group_size_approx << endl;
     unsigned long nAut = stats.group_size_approx;
 
     // construct the automorphism group
@@ -108,9 +120,9 @@ namespace OpenBabel {
 
       addInverses(G);
       addProducts(G);
-
+    
       counter++;
-      if (counter > 100)
+      if (counter > 1000)
         break;
     }
 
@@ -118,7 +130,7 @@ namespace OpenBabel {
       cout << "ERROR: Not all " << nAut << " automorphisms are found!" << endl;
     else 
       cout << "SUCCESS: all " << nAut << " automorphisms are found!" << endl;
-
+    
     return G;
   }
 

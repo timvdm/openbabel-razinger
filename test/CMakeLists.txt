@@ -9,6 +9,7 @@ add_definitions(-DFORMATDIR="\\"${openbabel_BINARY_DIR}/lib/\\"")
 ############################################################
 
 set(tests
+    automorphism
     uniqueid
     smiles
     stereo
@@ -19,6 +20,7 @@ set(tests
     cistrans
     stereoperception
     graphsym
+    shuffle
     stereoisomer
     permutation
    )

@@ -35,6 +35,8 @@ using namespace std;
 #include "paritymatrix.h"
 #include "temp.h"
 
+//#define DEBUG_STEREOISOMER 1
+
 namespace OpenBabel {
 
   OBStereoisomer::OBStereoisomer(OBMol *mol)
@@ -53,7 +55,39 @@ namespace OpenBabel {
   }
   */
 
+  OBStereoisomer::ParityVec createParityVec(const Eigen::VectorXi &v)
+  {
+    OBStereoisomer::ParityVec pv;
+    for (unsigned int i = 0; i < v.size(); ++i)
+      pv.push_back(v[i]);
+    return pv;
+  }
 
+  OBStereoisomer::Enantiomer createEnantiomer(const std::vector<OBStereoisomer::ParityVec> &parities, 
+      const std::vector<OBStereoisomer::ParityVec> &inverseParities)
+  {
+    OBStereoisomer::Enantiomer e;
+    e.parities = parities;
+    e.inverseParities = inverseParities;
+    return e;
+  }
+
+  OBStereoisomer::Diastereomer createDiastereomer(const std::vector<OBStereoisomer::ParityVec> &parities)
+  {
+    OBStereoisomer::Diastereomer d;
+    d.parities = parities;
+    return d;
+  }
+
+  bool contains(const std::vector<OBStereoisomer::ParityVec> &parities, const OBStereoisomer::ParityVec &p)
+  {
+    for (unsigned int i = 0; i < parities.size(); ++i) {
+      if (parities.at(i) == p)
+        return true;
+    }
+
+    return false;
+  }
 
   void OBStereoisomer::FindStereoisomers(OBMol *mol, const std::vector<unsigned int> &symmetry_classes)
   {
@@ -61,10 +95,13 @@ namespace OpenBabel {
     // Find all automorphisms for the structure
     //
     PermutationGroup G = findAutomorphisms(mol, symmetry_classes);
+    m_automorphisms = G;
+#ifdef DEBUG_STEREOISOMER
     std::cout << "Automorphisms:" << std::endl;
     for (unsigned int g = 0; g < G.permutations.size(); ++g) {
       G.at(g).print();
     }
+#endif
 
     //
     // Find all types of stereogenic units (i.e. tetrahedral, cis/trans, ...)
@@ -94,8 +131,8 @@ namespace OpenBabel {
     unsigned int n = numTetrahedral + 2 * numCisTrans;
 
     if (!n) {
-      m_enantiomerPairs = 0;
-      m_diastereomers = 0;
+      m_numEnantiomerPairs = 0;
+      m_numDiastereomers = 0;
     }
 
     //
@@ -171,24 +208,31 @@ namespace OpenBabel {
         continue;
       }
       
+#ifdef DEBUG_STEREOISOMER
       cout << "isomer: " << i+1 << endl;
       cout << "r" << i+1 << ": ";
       for (unsigned int deb = 0; deb < n; deb++)
         cout << parityMatrix(i,deb) << " ";
       cout << endl;
+#endif
+
+      std::vector<ParityVec> parities;
+      std::vector<ParityVec> inverseParities;
 
       std::vector<Eigen::VectorXi> products;
       for (unsigned int j = 0; j < signedMatrices.size(); ++j) {
-        //Eigen::VectorXi Pirj = signedMatrices.at(j) * parityMatrix.row(i).transpose();
         Eigen::VectorXi Pirj = multiplyMatrixByRow(signedMatrices.at(j), parityMatrix.row(i));
-        //Eigen::VectorXi tmp = parityMatrix.row(i);
-        //cout << "parityMatrix_row: " << endl << tmp << endl;
 
+        OBStereoisomer::ParityVec pv = createParityVec(Pirj);
+        if (!contains(parities, pv))
+          parities.push_back(pv);
         products.push_back(Pirj);
+#ifdef DEBUG_STEREOISOMER
         cout << "P" << j+1 << " * r" << i+1 << "^T: ";
         for (unsigned int debug = 0; debug < Pirj.size(); ++debug)
           cout << Pirj[debug] << " ";
         cout << endl;
+#endif
         
         for (unsigned int k = 0; k < N; ++k) {
           // skip redundant rows
@@ -203,7 +247,9 @@ namespace OpenBabel {
 
           if (match) {
             redundant.push_back(k);
+#ifdef DEBUG_STEREOISOMER
             cout << "redundant: " << k+1 << " (found redundant row)" << endl;
+#endif
           }
         }
       }
@@ -214,15 +260,20 @@ namespace OpenBabel {
         for (unsigned int l = 0; l < numTetrahedral; ++l)
           mirror[l] = -products.at(j)[l];
         
+#ifdef DEBUG_STEREOISOMER
         cout << "r-" << i+1 << ": ";
         for (unsigned int deb = 0; deb < n; deb++)
           cout << mirror(deb) << " ";
         cout << endl;
+#endif
  
         for (unsigned int k = 0; k < N; ++k) {
           // skip redundant rows
           if (std::find(redundant.begin(), redundant.end(), k) != redundant.end()) 
             continue;
+          OBStereoisomer::ParityVec pv = createParityVec(mirror);
+          if (!contains(inverseParities, pv))
+            inverseParities.push_back(pv);
  
           // compare the product's mirror to the parityMatrix row
           bool match = true;
@@ -232,7 +283,9 @@ namespace OpenBabel {
 
           if (match) {
             redundant.push_back(k);
+#ifdef DEBUG_STEREOISOMER
             cout << "redundant: " << k+1 << " (found enantiomer)" << endl;
+#endif
             foundEnantiomer = true;
             break;
           }
@@ -243,11 +296,17 @@ namespace OpenBabel {
       }
       
       if (foundEnantiomer) {
+#ifdef DEBUG_STEREOISOMER
         cout << "--------------------> found enantiomer pair!!" << endl;
+#endif
         numEnantiomers++;
+        m_enantiomers.push_back(createEnantiomer(parities, inverseParities));
       } else {
-        numDiastereomers++;
+#ifdef DEBUG_STEREOISOMER
         cout << "--------------------> found diastereoisomer!!" << endl;
+#endif
+        numDiastereomers++;
+        m_diastereomers.push_back(createDiastereomer(parities));
       }
 
    
@@ -256,8 +315,8 @@ namespace OpenBabel {
     cout << "numEnantionmers: " << 2*numEnantiomers << endl;
     cout << "numDiastereomers: " << numDiastereomers << endl;
 
-    m_enantiomerPairs = numEnantiomers;
-    m_diastereomers = numDiastereomers;
+    m_numEnantiomerPairs = numEnantiomers;
+    m_numDiastereomers = numDiastereomers;
 
  
   

@@ -25,6 +25,7 @@
 #define OB_STEREOMER_H
 
 #include <openbabel/babelconfig.h> 
+#include <openbabel/permutation.h> 
 
 #include <vector> 
 
@@ -38,22 +39,50 @@ namespace OpenBabel {
   class OBAPI OBStereoisomer 
   {
     public:
+      typedef std::vector<int> ParityVec; // e.g 1 -1 1
+      struct Enantiomer {
+        std::vector<ParityVec> parities;
+        std::vector<ParityVec> inverseParities;
+      };
+      struct Diastereomer {
+        std::vector<ParityVec> parities;
+      };
+
       OBStereoisomer(OBMol *mol);
 //      OBStereoisomer(OBMol *mol, const std::vector<unsigned int> &symmetry_classes);
 
       unsigned int numEnantiomerPairs() const
       {
-        return m_enantiomerPairs;
+        return m_numEnantiomerPairs;
       }
       unsigned int numDiastereomers() const
+      {
+        return m_numDiastereomers;
+      }
+
+      const std::vector<Enantiomer>& enantiomers() const
+      {
+        return m_enantiomers;
+      }
+      const std::vector<Diastereomer>& diastereomers() const
       {
         return m_diastereomers;
       }
 
+      const PermutationGroup& automorphisms() const
+      {
+        return m_automorphisms;
+      }
+
+
     protected:
       void FindStereoisomers(OBMol *mol, const std::vector<unsigned int> &symmetry_classes);
-      unsigned int m_enantiomerPairs;
-      unsigned int m_diastereomers;
+      unsigned int m_numEnantiomerPairs;
+      unsigned int m_numDiastereomers;
+
+      std::vector<Enantiomer> m_enantiomers;
+      std::vector<Diastereomer> m_diastereomers;
+      PermutationGroup m_automorphisms;
   };
      
   ///@}  addtogroup

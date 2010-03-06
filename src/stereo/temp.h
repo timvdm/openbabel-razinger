@@ -3,14 +3,14 @@ namespace OpenBabel {
   void contractPermutations(const PermutationGroup &G, PermutationGroup &Gc, const std::vector<unsigned int> &stereoAtoms)
   {
     // contract the permutations (i.e. remove non-stereogenic atoms)
-    std::cout << "Contracted Permutations:" << std::endl;
+    //std::cout << "Contracted Permutations:" << std::endl;
     for (unsigned int g = 0; g < G.permutations.size(); ++g) {
       Permutation p;
       for (unsigned int j = 0; j < G.at(g).map.size(); ++j) {
         if (std::find(stereoAtoms.begin(), stereoAtoms.end(), G.at(g).map.at(j)) != stereoAtoms.end())
           p.map.push_back(G.at(g).map.at(j));
       }
-      p.print();
+      //p.print();
       if (p.map.size())
         Gc.add(p);
     } 
@@ -19,12 +19,12 @@ namespace OpenBabel {
   void signedPermutationMatrices(const PermutationGroup &Gc, const std::vector<Eigen::VectorXi> &stereoIndexVectors, 
       std::vector<Eigen::MatrixXi> &signedMatrices, int numTetrahedral, int numCisTrans, int n)
   {
-    cout << "signedPermutationMatrices" << endl;
+    //cout << "signedPermutationMatrices" << endl;
     for (unsigned int g = 0; g < Gc.permutations.size(); ++g) {
       const Permutation &p = Gc.permutations.at(g);
 
 
-      cout << "matrix p" << g+1 << endl << p.matrix() << endl;
+      //cout << "matrix p" << g+1 << endl << p.matrix() << endl;
       //cout << stereoIndexVectors.at(g) << endl;
       Eigen::MatrixXi P = p.matrix();
       Eigen::MatrixXi Ps = Eigen::MatrixXi::Zero(n, n);
@@ -36,8 +36,8 @@ namespace OpenBabel {
 
       signedMatrices.push_back( Ps );
 
-      std::cout << "signed permutation matrix:" << std::endl;
-      std::cout << signedMatrices.back() << std::endl;
+      //std::cout << "signed permutation matrix:" << std::endl;
+      //std::cout << signedMatrices.back() << std::endl;
     }
   }
         
@@ -54,7 +54,7 @@ namespace OpenBabel {
     std::map<unsigned int, std::vector<unsigned int> > symClass2index;
     OBBondIterator bi;
     for (OBAtom *nbr = atom->BeginNbrAtom(bi); nbr; nbr = atom->NextNbrAtom(bi)) {
-      std::cout << "    nbr symClass: " << symmetry_classes.at(nbr->GetIndex()) << std::endl;
+      //std::cout << "    nbr symClass: " << symmetry_classes.at(nbr->GetIndex()) << std::endl;
       // create the vector if the symmetry class doesn't have one yet
       if (symClass2index.find(symmetry_classes.at(nbr->GetIndex())) == symClass2index.end())
         symClass2index[symmetry_classes.at(nbr->GetIndex())] = std::vector<unsigned int>();
@@ -67,19 +67,19 @@ namespace OpenBabel {
     for (ids = symClass2index.begin(); ids != symClass2index.end(); ++ids) {
       // make sure the nbr ids are ordered as in the permutation
       std::vector<unsigned long> ordered;
-      cout << "ordered:";
+      //cout << "ordered:";
       for (unsigned int pi = 0; pi < p.map.size(); ++pi) {
         if (std::find(ids->second.begin(), ids->second.end(), p.map.at(pi) - 1) != ids->second.end()) {
           ordered.push_back(p.map.at(pi));
-          cout << " " << p.map.at(pi);
+          //cout << " " << p.map.at(pi);
         }
       }
-      cout << endl;
+      //cout << endl;
 
       // debug
-      for (unsigned int deb = 0; deb < ids->second.size(); ++deb)
-        std::cout << "  " << ids->second[deb];
-      std::cout << std::endl;
+      //for (unsigned int deb = 0; deb < ids->second.size(); ++deb)
+      //  std::cout << "  " << ids->second[deb];
+      //std::cout << std::endl;
       numInversions += OBStereo::NumInversions(ordered);
     }
 
@@ -93,7 +93,7 @@ namespace OpenBabel {
       const PermutationGroup &G, const std::vector<StereogenicUnit> &stereoUnits, OBMol *mol, 
       const std::vector<unsigned int> &symmetry_classes, int n)
   {      
-    cout << "createStereoIndexVectors" << endl;
+    //cout << "createStereoIndexVectors" << endl;
     //
     // Construct the stereoindex vectors, one for each automorphism:
     //
@@ -105,7 +105,7 @@ namespace OpenBabel {
     for (unsigned int g = 0; g < Gc.permutations.size(); ++g) {
       const Permutation &p = Gc.permutations.at(g);
       const Permutation &pFull = G.permutations.at(g);
-      std::cout << "permutation: "; p.print();
+      //std::cout << "permutation: "; p.print();
       //std::cout << "matrix: " << endl;
       //std::cout << p.matrix() << endl;
 
@@ -139,10 +139,10 @@ namespace OpenBabel {
             }
 
           if (!unit->para) {
-            cout << "-> true stereocenter: id = " << unit->id << endl;
+            //cout << "-> true stereocenter: id = " << unit->id << endl;
             stereoIndex[insertpos] = 1;
           } else {
-            cout << "-> para stereocenter: id = " << unit->id << endl;
+            //cout << "-> para stereocenter: id = " << unit->id << endl;
             // need to count the number of permutations for
             stereoIndex[insertpos] = getStereoIndex(atom, pFull, symmetry_classes);
           }
@@ -169,7 +169,7 @@ namespace OpenBabel {
       //std::cout << "stereoIndex =" << std::endl;
       //std::cout << stereoIndex << std::endl;
       stereoIndexVectors.push_back(stereoIndex);
-      cout << "stereoindex:" << endl << stereoIndex << endl;
+      //cout << "stereoindex:" << endl << stereoIndex << endl;
  
     }
 
