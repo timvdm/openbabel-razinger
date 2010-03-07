@@ -44,6 +44,46 @@ string sequence(OBMol &mol);
 ///////////////////////////////////////////////////////////////////////////////
 //! \brief Compute some properties easy to access from open babel
 //
+  int getStereoIndex(OBAtom *atom, const Permutation &p, const std::vector<unsigned int> &symmetry_classes)
+  {
+    // construct map: symmetry class -> vector<id>
+    std::map<unsigned int, std::vector<unsigned int> > symClass2index;
+    OBBondIterator bi;
+    for (OBAtom *nbr = atom->BeginNbrAtom(bi); nbr; nbr = atom->NextNbrAtom(bi)) {
+      //std::cout << "    nbr symClass: " << symmetry_classes.at(nbr->GetIndex()) << std::endl;
+      // create the vector if the symmetry class doesn't have one yet
+      if (symClass2index.find(symmetry_classes.at(nbr->GetIndex())) == symClass2index.end())
+        symClass2index[symmetry_classes.at(nbr->GetIndex())] = std::vector<unsigned int>();
+      // add this nbr's id
+      symClass2index[symmetry_classes.at(nbr->GetIndex())].push_back(nbr->GetIndex());
+    }
+
+    unsigned int numInversions = 0;
+    std::map<unsigned int, std::vector<unsigned int> >::iterator ids;
+    for (ids = symClass2index.begin(); ids != symClass2index.end(); ++ids) {
+      // make sure the nbr ids are ordered as in the permutation
+      std::vector<unsigned long> ordered;
+      //cout << "ordered:";
+      for (unsigned int pi = 0; pi < p.map.size(); ++pi) {
+        if (std::find(ids->second.begin(), ids->second.end(), p.map.at(pi) - 1) != ids->second.end()) {
+          ordered.push_back(p.map.at(pi));
+          //cout << " " << p.map.at(pi);
+        }
+      }
+      //cout << endl;
+
+      // debug
+      //for (unsigned int deb = 0; deb < ids->second.size(); ++deb)
+      //  std::cout << "  " << ids->second[deb];
+      //std::cout << std::endl;
+      numInversions += OBStereo::NumInversions(ordered);
+    }
+
+    if (numInversions % 2)
+      return -1; // odd # of permutations
+    else
+      return 1; // even # of permutations
+  }
 
 void IdsToSymClasses(OBMol *mol, OBTetrahedralStereo::Config &config, 
     const std::vector<unsigned int> &symClasses)
@@ -78,13 +118,15 @@ void IdsToSymClasses(OBMol *mol, OBTetrahedralStereo::Config &config,
 }
 
 
-int configParity(const OBTetrahedralStereo::Config &config, OBMol *mol, const std::vector<unsigned int> &symClasses)
+int configParity(const OBTetrahedralStereo::Config &config, OBMol *mol, 
+    const std::vector<unsigned int> &symClasses = std::vector<unsigned int>())
 {
   OBTetrahedralStereo::Config cfg = config;
-  //IdsToSymClasses(mol, cfg, symClasses);
+  if (!symClasses.empty())
+    IdsToSymClasses(mol, cfg, symClasses);
   //cout << "ERROR  " << cfg << endl;
   std::vector<unsigned long> refs = cfg.refs;
-  refs.insert(refs.begin(), config.from); // doesn't matter if view is from or towards, will be sorted anyway
+  refs.insert(refs.begin(), cfg.from); // doesn't matter if view is from or towards, will be sorted anyway
   //std::sort(refs.begin(), refs.end());
 
   bool p = (OBStereo::NumInversions(refs) % 2) ? true : false;
@@ -172,31 +214,64 @@ int main(int argc,char **argv)
     cout << "Enantiomer pairs: " << isomers.numEnantiomerPairs() << endl;
     cout << "Diastereomers: " << isomers.numDiastereomers() << endl;
 
-    std::vector<unsigned int> symmetry_classes;
+    std::vector<unsigned int> symmetry_classes, canon_order;
     OBGraphSym gs(&mol);
-    gs.GetSymmetry(symmetry_classes, false);
+    gs.GetSymmetry(symmetry_classes);
+    //gs.GetSymmetry(symmetry_classes, false);
+    gs.CanonicalLabels(canon_order);
 
-    // print the parities for the molecule
-    cout << "parities: ";
-    OBStereoisomer::ParityVec parities, lastParities;
-    std::vector<OBTetrahedralStereo::Config> configs;
-    std::vector<unsigned long> atomIds;
+    std::vector<unsigned long> canIds;
+
+
+    cout << "ERROR XXX parities2: ";
+    OBStereoisomer::ParityVec parities2;
     FOR_ATOMS_OF_MOL (atom, mol) {
       if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
-        cout << "(id:" << atom->GetId() << ") ";
-        OBTetrahedralStereo::Config config = stereoFacade.GetTetrahedralStereo(atom->GetId())->GetConfig();
-        atomIds.push_back(config.center);
-        int parity = configParity(config, &mol, symmetry_classes);
-        parities.push_back(parity);
-        cout << parity << " ";
-        configs.push_back(config);
+        int index = getStereoIndex(&*atom, canon_order, symmetry_classes);
+        cout << index << " ";
+        parities2.push_back(index);
       }
     }
     cout << endl;
  
+    // print the parities for the molecule
+    cout << "ERROR XXX parities sym: ";
+    OBStereoisomer::ParityVec parities, lastParities, canParities, idParities;
+    std::vector<OBTetrahedralStereo::Config> configs;
+    std::vector<unsigned long> atomIds;
+    FOR_ATOMS_OF_MOL (atom, mol) {
+      if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
+        OBTetrahedralStereo::Config config = stereoFacade.GetTetrahedralStereo(atom->GetId())->GetConfig();
+        atomIds.push_back(config.center);
+        canIds.push_back(canon_order.at(atom->GetIndex()));
+        int symParity = configParity(config, &mol, symmetry_classes);
+        parities.push_back(symParity);
+        cout << symParity << " ";
+        int canParity = configParity(config, &mol, canon_order);
+        canParities.push_back(canParity);
+        int idParity = configParity(config, &mol);
+        idParities.push_back(idParity);
+        configs.push_back(config);
+      }
+    }
+    cout << endl;
+    cout << "ERROR XXX parities can = ";
+    for (unsigned int i = 0; i < canParities.size(); ++i)
+      cout << canParities.at(i) << " ";
+    cout << endl;
+    cout << "ERROR XXX parities id = ";
+    for (unsigned int i = 0; i < idParities.size(); ++i)
+      cout << idParities.at(i) << " ";
+    cout << endl;
+ 
+    cout << "ERROR XXX canIds = ";
+    for (unsigned int i = 0; i < canIds.size(); ++i)
+      cout << canIds.at(i) << " ";
+    cout << endl;
+ 
     std::vector<std::string> canonicalCandidates;
 
-    lastParities = parities;
+    lastParities = parities2;
     // print all stereomers
     const std::vector<OBStereoisomer::Diastereomer> &diastereomers = isomers.diastereomers();
     for (unsigned int i = 0; i < diastereomers.size(); ++i) {
@@ -214,7 +289,7 @@ int main(int argc,char **argv)
           cout << pv.at(k) << " ";
         }
         cout << endl;
-        if (pv == parities) {
+        if (pv == parities2) {
           cout << "ERROR  ----> found diastereomer matching input structure: " << smiConv.WriteString(&mol);
           foundDiastereomer = true;
         }
@@ -225,12 +300,12 @@ int main(int argc,char **argv)
         candidates.push_back(candidate);
       }
 
-      if (foundDiastereomer)
+      if (foundDiastereomer)   
         canonicalCandidates = candidates;
     }
     cout << "ERROR XXX: " << canonicalCandidates.size() << "   Inv = " << OBStereo::NumInversions(atomIds) << endl;
 
-    cout << "Canonical candidates:" << endl;
+    cout << "Canonical candidates: " << canonicalCandidates.size() << endl;
     for (unsigned int i = 0; i < canonicalCandidates.size(); ++i) {
       cout << "ERROR  " << canonicalCandidates.at(i);
     }
