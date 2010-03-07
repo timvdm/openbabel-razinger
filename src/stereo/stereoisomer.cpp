@@ -35,7 +35,7 @@ using namespace std;
 #include "paritymatrix.h"
 #include "temp.h"
 
-//#define DEBUG_STEREOISOMER 1
+#define DEBUG_STEREOISOMER 1
 
 namespace OpenBabel {
 

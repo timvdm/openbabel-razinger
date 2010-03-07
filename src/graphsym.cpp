@@ -1093,7 +1093,8 @@ void OBGraphSym::BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_
     ClearSymmetry(); // For the moment just recalculate the symmetry classes
 
     // Check to see whether we have already calculated the symmetry classes
-    OBPairData *pd = dynamic_cast<OBPairData*>(_pmol->GetData("OpenBabel Symmetry Classes"));
+//    OBPairData *pd = dynamic_cast<OBPairData*>(_pmol->GetData("OpenBabel Symmetry Classes"));
+    OBPairData *pd = 0; // FIXME
 
     int nclasses = 0;
     if (!pd) {
