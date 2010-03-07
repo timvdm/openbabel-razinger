@@ -89,7 +89,7 @@ void genericGraphSymTest(const std::string &smiles)
   cout << "." << endl << endl; 
 }
 
-void countGraphSymClassesTest(const std::string &filename, int numberOfClasses)
+void countGraphSymClassesTest(const std::string &filename, int numberOfClasses, bool breakChiralTies = false)
 {
   cout << filename << endl;
   std::string file = GetFilename(filename);
@@ -102,7 +102,7 @@ void countGraphSymClassesTest(const std::string &filename, int numberOfClasses)
 
   OBGraphSym graphSym(&mol);
   std::vector<unsigned int> symmetry_classes;
-  graphSym.GetSymmetry(symmetry_classes, false);
+  graphSym.GetSymmetry(symmetry_classes, breakChiralTies);
   for (unsigned int i = 0; i < symmetry_classes.size(); ++i)
     cout << i+1 << ": " << symmetry_classes[i] << endl;
 
@@ -140,6 +140,10 @@ int main()
   genericGraphSymTest("CC(C)[C@H]1CC[C@]([C@@H]2[C@@H]1C=C(COC2=O)C(=O)O)(CCl)O");
   genericGraphSymTest("CC(C)[C@@]12C[C@@H]1[C@@H](C)C(=O)C2");
   
+  countGraphSymClassesTest("stereo/cyclobutane_D1.mol", 8, true);
+  countGraphSymClassesTest("stereo/cyclobutane_D1.smi", 8, true);
+
+
   // ring gets converted to aromatic ring, adding H on n (i.e. N -> [nH])
   //genericGraphSymTest("CC1=CN(C(=O)NC1=O)[C@H]2C[C@@H]([C@H](O2)CNCC3=CC=CC=C3)O");
   // This is the aromatic form -- GRH, it passes

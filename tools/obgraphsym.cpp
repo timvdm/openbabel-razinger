@@ -95,7 +95,8 @@ int main(int argc,char **argv)
 
     OBGraphSym sym(&mol);
     std::vector<unsigned int> symmetry_classes;
-    sym.GetSymmetry(symmetry_classes, false);
+//    sym.GetSymmetry(symmetry_classes, false);
+    sym.GetSymmetry(symmetry_classes);
 
     cout << "atom number -> symmetry class" << endl;
     for (unsigned int i = 0; i < symmetry_classes.size(); ++i) {

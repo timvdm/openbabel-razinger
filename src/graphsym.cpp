@@ -1083,7 +1083,7 @@ void OBGraphSym::BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_
     symData->SetAttribute("OpenBabel Symmetry Classes");
     symData->SetOrigin(local); //will not show as sdf or cml property
     symData->SetValue(temp.str());
-    _pmol->SetData(symData);
+//    _pmol->SetData(symData);
  
     return nclasses;
   }

@@ -16,6 +16,13 @@ using std::cout;
 using std::endl;
 using namespace OpenBabel;
 
+std::string GetFilename(const std::string &filename)
+{
+  string path = TESTDATADIR + filename;
+  return path;
+}
+
+
   int getStereoIndex(OBAtom *atom, const Permutation &p, const std::vector<unsigned int> &symmetry_classes)
   {
     // construct map: symmetry class -> vector<id>
@@ -98,7 +105,7 @@ int configParity(const OBTetrahedralStereo::Config &config, OBMol *mol,
   OBTetrahedralStereo::Config cfg = config;
   if (!symClasses.empty())
     IdsToSymClasses(mol, cfg, symClasses);
-  //cout << "ERROR  " << cfg << endl;
+  //cout << "  " << cfg << endl;
   std::vector<unsigned long> refs = cfg.refs;
   refs.insert(refs.begin(), cfg.from); // doesn't matter if view is from or towards, will be sorted anyway
   //std::sort(refs.begin(), refs.end());
@@ -115,7 +122,7 @@ int configParityPaper(OBTetrahedralStereo *ts, OBMol *mol,
     const std::vector<unsigned int> &canon_order)
 {
   OBTetrahedralStereo::Config cfg = ts->GetConfig();
-  IdsToSymClasses(mol, cfg, canon_order);
+  //IdsToSymClasses(mol, cfg, canon_order);
 
   // lowest priority = highest canonical
   // H = lowest priority
@@ -127,7 +134,7 @@ int configParityPaper(OBTetrahedralStereo *ts, OBMol *mol,
   // create -1 ordered config
   OBTetrahedralStereo::Config ordered = ts->GetConfig(lowest, OBStereo::Clockwise, OBStereo::ViewTowards);
   std::sort(ordered.refs.begin(), ordered.refs.end()); // increase clockwise -> -1
-  IdsToSymClasses(mol, ordered, canon_order);
+  //IdsToSymClasses(mol, ordered, canon_order);
 
   if (cfg == ordered)
     return -1;
@@ -161,7 +168,8 @@ void storeConfigs(OBMol *mol, const std::vector<OBTetrahedralStereo::Config> &co
         bool operator()(const Holder &a, const Holder &b) const { return a.canId > b.canId; }
       };
  
-std::string canonicalSmiles(const std::string &smiles, const std::string &ref = std::string())
+std::string canonicalSmiles(const std::string &smiles, std::vector<std::string> &out_candidates, 
+    const std::string &ref = std::string())
 {
   // read a smiles string
   OBMol mol;
@@ -179,7 +187,33 @@ std::string canonicalSmiles(const std::string &smiles, const std::string &ref = 
     OBGraphSym gs2(&mol);
     gs2.GetSymmetry(symmetry_classes);
     gs2.CanonicalLabels(canon_order);
- 
+  
+    cout << "SYMCLASSES: ";
+    for (unsigned int i = 0; i < symmetry_classes.size(); ++i)
+      cout << symmetry_classes.at(i) << " ";
+    cout << endl;
+
+
+   /* 
+    std::vector<OBAtom*> atoms(mol.NumAtoms());
+    for (unsigned int i = 0; i < atoms.size(); ++i)
+      atoms[canon_order.at(i)-1] = mol.GetAtom(i+1);
+    mol.RenumberAtoms(atoms);
+    
+    OBGraphSym gs(&mol);
+    gs.GetSymmetry(symmetry_classes);
+    gs.CanonicalLabels(canon_order);
+ */
+    cout << "CANORDER: ";
+    for (unsigned int i = 0; i < canon_order.size(); ++i)
+      cout << canon_order.at(i) << " ";
+    cout << endl;
+
+    cout << "IDORDER: ";
+    FOR_ATOMS_OF_MOL (atom, mol)
+      cout << atom->GetId() << " ";
+    cout << endl;
+
 
     OBStereoisomer isomers(&mol);
     OBStereoFacade stereoFacade(&mol);
@@ -189,7 +223,7 @@ std::string canonicalSmiles(const std::string &smiles, const std::string &ref = 
 
 
     std::vector<unsigned long> canIds;
-    cout << "ERROR XXX parities2: ";
+    cout << "XXX parities2: ";
     OBStereoisomer::ParityVec parities2;
     FOR_ATOMS_OF_MOL (atom, mol) {
       if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
@@ -202,20 +236,22 @@ std::string canonicalSmiles(const std::string &smiles, const std::string &ref = 
     cout << endl;
  
     // print the parities for the molecule
-    cout << "ERROR XXX parities sym: ";
+    cout << "XXX parities sym: ";
     OBStereoisomer::ParityVec parities, lastParities, canParities, idParities, parities3;
     std::vector<OBTetrahedralStereo::Config> configs;
     std::vector<unsigned long> atomIds;
     FOR_ATOMS_OF_MOL (atom, mol) {
       if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
-        parities3.push_back(configParityPaper(stereoFacade.GetTetrahedralStereo(atom->GetId()), &mol, canon_order));
+        OBTetrahedralStereo *ts = stereoFacade.GetTetrahedralStereo(atom->GetId());
+        parities3.push_back(configParityPaper(ts, &mol, canon_order));
         OBTetrahedralStereo::Config config = stereoFacade.GetTetrahedralStereo(atom->GetId())->GetConfig();
         atomIds.push_back(config.center);
         canIds.push_back(canon_order.at(atom->GetIndex()));
         int symParity = configParity(config, &mol, symmetry_classes);
         parities.push_back(symParity);
         cout << symParity << " ";
-        int canParity = configParity(config, &mol, canon_order);
+        //int canParity = configParity(config, &mol, canon_order);
+        int canParity = configParityPaper(ts, &mol, canon_order);
         canParities.push_back(canParity);
         int idParity = configParity(config, &mol);
         idParities.push_back(idParity);
@@ -223,16 +259,16 @@ std::string canonicalSmiles(const std::string &smiles, const std::string &ref = 
       }
     }
     cout << endl;
-    cout << "ERROR XXX parities can = ";
+    cout << "XXX parities can = ";
     for (unsigned int i = 0; i < canParities.size(); ++i)
       cout << canParities.at(i) << " ";
     cout << endl;
-    cout << "ERROR XXX parities id = ";
+    cout << "XXX parities id = ";
     for (unsigned int i = 0; i < idParities.size(); ++i)
       cout << idParities.at(i) << " ";
     cout << endl;
  
-    cout << "ERROR XXX canIds = ";
+    cout << "XXX canIds = ";
     for (unsigned int i = 0; i < canIds.size(); ++i)
       cout << canIds.at(i) << " ";
     cout << "    inversion = " << OBStereo::NumInversions(canIds) << endl;
@@ -251,8 +287,7 @@ std::string canonicalSmiles(const std::string &smiles, const std::string &ref = 
       for (unsigned int i = 0; i < canIds.size(); ++i)
         canParities.push_back(holders.at(i).parity);
     }
-    */
-
+*/
     std::vector<std::string> canonicalCandidates;
 
 
@@ -262,7 +297,7 @@ std::string canonicalSmiles(const std::string &smiles, const std::string &ref = 
     for (unsigned int i = 0; i < diastereomers.size(); ++i) {
       std::vector<std::string> candidates;
       cout << "  diastereomer " << i+1 << endl;
-      cout << "ERROR    parities: ";
+      cout << "    parities: ";
       bool foundDiastereomer = false;
       for (unsigned int j = 0; j < diastereomers.at(i).parities.size(); ++j) {
         const OBStereoisomer::ParityVec &pv = diastereomers.at(i).parities.at(j);
@@ -275,7 +310,7 @@ std::string canonicalSmiles(const std::string &smiles, const std::string &ref = 
         }
         cout << endl;
         if (pv == canParities) {
-          cout << "ERROR  ----> found diastereomer matching input structure: " << conv.WriteString(&mol);
+          cout << "  ----> found diastereomer matching input structure: " << conv.WriteString(&mol);
           foundDiastereomer = true;
         }
         lastParities = pv;
@@ -294,23 +329,27 @@ std::string canonicalSmiles(const std::string &smiles, const std::string &ref = 
       */
         if (foundDiastereomer)   
           canonicalCandidates = candidates;
+        /*
       if (std::find(candidates.begin(), candidates.end(), ref) != candidates.end()) {
         cout << "CANDIDATE FOUND : " << candidates.size() << endl;
                canonicalCandidates = candidates;
       }
+      */
  
     }
-    cout << "ERROR XXX: " << canonicalCandidates.size() << "   Inv = " << OBStereo::NumInversions(canIds) << endl;
+    cout << "XXX: " << canonicalCandidates.size() << "   Inv = " << OBStereo::NumInversions(canIds) << endl;
+
 
     cout << "Canonical candidates:" << endl;
     for (unsigned int i = 0; i < canonicalCandidates.size(); ++i) {
-      cout << "ERROR  " << canonicalCandidates.at(i);
+      cout << "  " << canonicalCandidates.at(i);
     }
 
     std::sort(canonicalCandidates.begin(), canonicalCandidates.end());
-    cout << "ERROR  True canonical SMILES: ";
+    cout << "  True canonical SMILES: ";
     cout << canonicalCandidates.front() << endl;
 
+    out_candidates = canonicalCandidates;
 
     return canonicalCandidates.front();
 }
@@ -322,7 +361,7 @@ static unsigned int testCount = 0;
 
 bool doShuffleTest(const std::string &smiles)
 {
-  cout << "ERROR True Shuffling: " << smiles << endl;
+  cout << " True Shuffling: " << smiles << endl;
   // read a smiles string
   OBMol mol;
   OBConversion canConv, smiConv;
@@ -338,8 +377,11 @@ bool doShuffleTest(const std::string &smiles)
   std::vector<OBAtom*> atoms;
   FOR_ATOMS_OF_MOL(atom, mol)
     atoms.push_back(&*atom);
-      
-  std::string ref = canonicalSmiles(smiles);
+  
+  std::vector< std::vector<std::string> > allCandidates; 
+
+  std::vector<std::string> candidates;
+  std::string ref = canonicalSmiles(smiles, candidates);
   cout << "ref = " << ref;
  
   bool result = true;
@@ -349,18 +391,84 @@ bool doShuffleTest(const std::string &smiles)
     mol.RenumberAtoms(atoms);
     // get can smiles
     std::string smiles = smiConv.WriteString(&mol);
-    std::string cansmi = canonicalSmiles(smiles, ref);
+    std::string cansmi = canonicalSmiles(smiles, candidates, ref);
+    allCandidates.push_back(candidates);
+    OB_ASSERT( cansmi == ref );
     // comapare with ref
     if (cansmi != ref) {
-      cout << "ERROR " << cansmi;
-      failed++;
+      cout << " " << cansmi;
+      if (result)
+        failed++;
       result = false;
     }
+  }
+
+  unsigned int numCandidates = allCandidates.at(0).size();
+  const std::vector<std::string> &candidates2 = allCandidates.at(0);
+  for (unsigned int i = 0; i < allCandidates.size(); ++i) {
+    cout << allCandidates.at(i).at(0);
+    OB_ASSERT( allCandidates.at(i).size() == numCandidates );
+    OB_ASSERT( allCandidates.at(i) == candidates2 );
   }
 
   return result;
 }
 
+bool doShuffleTestFile(const std::string &filename)
+{
+  cout << " True Shuffling: " << filename << endl;
+  std::string file = GetFilename(filename);
+  // read a smiles string
+  OBMol mol;
+  OBConversion canConv;
+  OBFormat *format = canConv.FormatFromExt(file.c_str());
+  OB_REQUIRE( format );
+  OB_REQUIRE( canConv.SetInFormat(format) );
+  OB_REQUIRE( canConv.ReadFile(&mol, file) );
+  OB_REQUIRE( canConv.SetOutFormat("can") );
+
+  std::string smiles = canConv.WriteString(&mol);
+  int N = 200;
+  testCount++;
+
+  std::vector<OBAtom*> atoms;
+  FOR_ATOMS_OF_MOL(atom, mol)
+    atoms.push_back(&*atom);
+  
+  std::vector< std::vector<std::string> > allCandidates; 
+
+  std::vector<std::string> candidates;
+  std::string ref = canonicalSmiles(smiles, candidates);
+  cout << "ref = " << ref;
+ 
+  bool result = true;
+  for (int i = 0; i < N; ++i) {
+    // shuffle the atoms
+    std::random_shuffle(atoms.begin(), atoms.end());
+    mol.RenumberAtoms(atoms);
+    // get can smiles
+    std::string smiles = canConv.WriteString(&mol);
+    std::string cansmi = canonicalSmiles(smiles, candidates, ref);
+    allCandidates.push_back(candidates);
+    OB_ASSERT( cansmi == ref );
+    // comapare with ref
+    if (cansmi != ref) {
+      cout << " " << cansmi;
+      if (result)
+        failed++;
+      result = false;
+    }
+  }
+
+  unsigned int numCandidates = allCandidates.at(0).size();
+  const std::vector<std::string> &candidates2 = allCandidates.at(0);
+  for (unsigned int i = 0; i < allCandidates.size(); ++i) {
+    cout << allCandidates.at(i).at(0);
+    OB_ASSERT( allCandidates.at(i).size() == numCandidates );
+  }
+
+  return result;
+}
 
 
 
@@ -402,7 +510,7 @@ bool doShuffleTest(const std::string &smiles)
     std::string cansmi = conv.WriteString(&mol);
     // comapare with ref
     if (cansmi != ref) {
-      cout << "ERROR " << cansmi;
+      cout << " " << cansmi;
       failed++;
       return false;
     }
@@ -414,14 +522,34 @@ bool doShuffleTest(const std::string &smiles)
 
 int main(int argc, char **argv)
 {
-  OB_ASSERT( doShuffleTest("O[C@H]1CC[C@@H](O)CC1") );
-  OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@H](O)C1") );
-  OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@@H](O)C1") );
+  //OB_ASSERT( doShuffleTest("O[C@H]1CC[C@@H](O)CC1") );
+  //OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@H](O)C1") );
+  //OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@@H](O)C1") );
+
+
+  OB_ASSERT( doShuffleTestFile("stereo/cyclohexanediol_D1.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/cyclohexanediol_D2.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D1.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D2.mol") );
+
+
+  // These work for mol files, not for smiles?????
+  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D1.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D2.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D3.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D4.mol") );
+  //OB_ASSERT( doShuffleTest("[C@@H]1([C@H]([C@H]([C@H]1C)C)C)C") );
+//  OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@H]([C@H]1C)C)C)C") );	
+  //OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@H]([C@@H]1C)C)C)C") );	
+  //OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@@H]([C@H]1C)C)C)C") );	
+
+
+
   //OB_ASSERT( doShuffleTest("O[C@H]1[C@@H](O)[C@H](O)[C@H](O)[C@H](O)[C@H]1O") );
   
   //OB_ASSERT( doShuffleTest("") );
 
-  cout << "FAILED TESTS: " << failed << "/" << testCount << endl;
+  cout << "PASSED TESTS: " << testCount - failed << "/" << testCount << endl;
 
   return 0;
 }
