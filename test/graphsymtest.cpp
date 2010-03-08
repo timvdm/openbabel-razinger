@@ -142,7 +142,7 @@ int main()
  
   // These should be the same right??? 
   countGraphSymClassesTest("stereo/cyclobutane_D1.mol", 8, true);
-  countGraphSymClassesTest("stereo/cyclobutane_D1.smi", 8, true);
+  countGraphSymClassesTest("stereo/cyclobutane_D1.smi", 12, true);
 
 
   // ring gets converted to aromatic ring, adding H on n (i.e. N -> [nH])

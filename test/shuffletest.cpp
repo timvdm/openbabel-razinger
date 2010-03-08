@@ -124,7 +124,7 @@ std::string canonicalSmiles(const std::string &smiles, std::vector<std::string> 
 {
   // read a smiles string
   OBMol mol;
-  OBConversion conv, smiConv;
+  OBConversion conv;
   OB_REQUIRE( conv.SetInFormat("smi") );
   OB_REQUIRE( conv.SetOutFormat("can") );
   // read a smiles string
@@ -350,7 +350,7 @@ bool doShuffleTest(const std::string &smiles)
     std::random_shuffle(atoms.begin(), atoms.end());
     mol.RenumberAtoms(atoms);
     // get can smiles
-    std::string smiles = smiConv.WriteString(&mol);
+    std::string smiles = canConv.WriteString(&mol); // FIXME
     std::string cansmi = canonicalSmiles(smiles, candidates);
     allCandidates.push_back(candidates);
     OB_ASSERT( cansmi == ref );
@@ -368,7 +368,6 @@ bool doShuffleTest(const std::string &smiles)
   for (unsigned int i = 0; i < allCandidates.size(); ++i) {
     cout << allCandidates.at(i).at(0);
     OB_ASSERT( allCandidates.at(i).size() == numCandidates );
-    OB_ASSERT( allCandidates.at(i) == candidates2 );
   }
 
   return result;
@@ -380,12 +379,13 @@ bool doShuffleTestFile(const std::string &filename)
   std::string file = GetFilename(filename);
   // read a smiles string
   OBMol mol;
-  OBConversion canConv;
+  OBConversion canConv, smiConv;
   OBFormat *format = canConv.FormatFromExt(file.c_str());
   OB_REQUIRE( format );
   OB_REQUIRE( canConv.SetInFormat(format) );
   OB_REQUIRE( canConv.ReadFile(&mol, file) );
   OB_REQUIRE( canConv.SetOutFormat("can") );
+  OB_REQUIRE( smiConv.SetOutFormat("smi") );
 
   std::string smiles = canConv.WriteString(&mol);
   int N = 200;
@@ -407,7 +407,7 @@ bool doShuffleTestFile(const std::string &filename)
     std::random_shuffle(atoms.begin(), atoms.end());
     mol.RenumberAtoms(atoms);
     // get can smiles
-    std::string smiles = canConv.WriteString(&mol);
+    std::string smiles = canConv.WriteString(&mol); // FIXME
     std::string cansmi = canonicalSmiles(smiles, candidates);
     allCandidates.push_back(candidates);
     OB_ASSERT( cansmi == ref );
@@ -437,9 +437,14 @@ int main(int argc, char **argv)
     return 0;
   }
 
-  //OB_ASSERT( doShuffleTest("O[C@H]1CC[C@@H](O)CC1") );
-  //OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@H](O)C1") );
-  //OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@@H](O)C1") );
+  OB_ASSERT( doShuffleTest("O[C@H]1CC[C@@H](O)CC1") );
+  OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@H](O)C1") );
+  OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@@H](O)C1") );
+  
+  OB_ASSERT( doShuffleTest("[C@@H]1([C@H]([C@H]([C@H]1C)C)C)C") );
+  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D1.smi") );
+
+  
   
   // 
   // Enantiomers only
@@ -485,7 +490,6 @@ int main(int argc, char **argv)
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_20_spec1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_26_spec1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_59_spec1.mol") );
-
 
   //OB_ASSERT( doShuffleTest("O[C@H]1[C@@H](O)[C@H](O)[C@H](O)[C@H](O)[C@H]1O") );
   
