@@ -23,48 +23,6 @@ std::string GetFilename(const std::string &filename)
 }
 
 
-  int getStereoIndex(OBAtom *atom, const Permutation &p, const std::vector<unsigned int> &symmetry_classes)
-  {
-    // construct map: symmetry class -> vector<id>
-    std::map<unsigned int, std::vector<unsigned int> > symClass2index;
-    OBBondIterator bi;
-    for (OBAtom *nbr = atom->BeginNbrAtom(bi); nbr; nbr = atom->NextNbrAtom(bi)) {
-      //std::cout << "    nbr symClass: " << symmetry_classes.at(nbr->GetIndex()) << std::endl;
-      // create the vector if the symmetry class doesn't have one yet
-      if (symClass2index.find(symmetry_classes.at(nbr->GetIndex())) == symClass2index.end())
-        symClass2index[symmetry_classes.at(nbr->GetIndex())] = std::vector<unsigned int>();
-      // add this nbr's id
-      symClass2index[symmetry_classes.at(nbr->GetIndex())].push_back(nbr->GetIndex());
-    }
-
-    unsigned int numInversions = 0;
-    std::map<unsigned int, std::vector<unsigned int> >::iterator ids;
-    for (ids = symClass2index.begin(); ids != symClass2index.end(); ++ids) {
-      // make sure the nbr ids are ordered as in the permutation
-      std::vector<unsigned long> ordered;
-      //cout << "ordered:";
-      for (unsigned int pi = 0; pi < p.map.size(); ++pi) {
-        if (std::find(ids->second.begin(), ids->second.end(), p.map.at(pi) - 1) != ids->second.end()) {
-          ordered.push_back(p.map.at(pi));
-          //cout << " " << p.map.at(pi);
-        }
-      }
-      //cout << endl;
-
-      // debug
-      //for (unsigned int deb = 0; deb < ids->second.size(); ++deb)
-      //  std::cout << "  " << ids->second[deb];
-      //std::cout << std::endl;
-      numInversions += OBStereo::NumInversions(ordered);
-    }
-
-    if (numInversions % 2)
-      return -1; // odd # of permutations
-    else
-      return 1; // even # of permutations
-  }
-
-
 
 void IdsToSymClasses(OBMol *mol, OBTetrahedralStereo::Config &config, 
     const std::vector<unsigned int> &symClasses)
@@ -122,7 +80,7 @@ int configParityPaper(OBTetrahedralStereo *ts, OBMol *mol,
     const std::vector<unsigned int> &canon_order)
 {
   OBTetrahedralStereo::Config cfg = ts->GetConfig();
-  //IdsToSymClasses(mol, cfg, canon_order);
+  //IdsToSymClasses(mol, cfg, canon_order); // FIXME
 
   // lowest priority = highest canonical
   // H = lowest priority
@@ -134,7 +92,7 @@ int configParityPaper(OBTetrahedralStereo *ts, OBMol *mol,
   // create -1 ordered config
   OBTetrahedralStereo::Config ordered = ts->GetConfig(lowest, OBStereo::Clockwise, OBStereo::ViewTowards);
   std::sort(ordered.refs.begin(), ordered.refs.end()); // increase clockwise -> -1
-  //IdsToSymClasses(mol, ordered, canon_order);
+  //IdsToSymClasses(mol, ordered, canon_order); // FIXME
 
   if (cfg == ordered)
     return -1;
@@ -160,16 +118,9 @@ void storeConfigs(OBMol *mol, const std::vector<OBTetrahedralStereo::Config> &co
     }
   }
 }
-      struct Holder {
-        int parity;
-        unsigned long canId;
-      };
-      struct compare {
-        bool operator()(const Holder &a, const Holder &b) const { return a.canId > b.canId; }
-      };
- 
-std::string canonicalSmiles(const std::string &smiles, std::vector<std::string> &out_candidates, 
-    const std::string &ref = std::string())
+
+
+std::string canonicalSmiles(const std::string &smiles, std::vector<std::string> &out_candidates)
 {
   // read a smiles string
   OBMol mol;
@@ -179,72 +130,46 @@ std::string canonicalSmiles(const std::string &smiles, std::vector<std::string> 
   // read a smiles string
   OB_REQUIRE( conv.ReadString(&mol, smiles) );
 
-    std::vector<unsigned int> symmetry_classes, canon_order;
+  std::vector<unsigned int> symmetry_classes, canon_order;
 
-    std::string canOrdered = conv.WriteString(&mol);
-    conv.ReadString(&mol, canOrdered);
-
-    OBGraphSym gs2(&mol);
-    gs2.GetSymmetry(symmetry_classes);
-    gs2.CanonicalLabels(canon_order);
-  
+  OBGraphSym gs(&mol);
+  gs.GetSymmetry(symmetry_classes);
+  gs.CanonicalLabels(canon_order);
+ 
+    /*
     cout << "SYMCLASSES: ";
     for (unsigned int i = 0; i < symmetry_classes.size(); ++i)
       cout << symmetry_classes.at(i) << " ";
     cout << endl;
-
-
-   /* 
-    std::vector<OBAtom*> atoms(mol.NumAtoms());
-    for (unsigned int i = 0; i < atoms.size(); ++i)
-      atoms[canon_order.at(i)-1] = mol.GetAtom(i+1);
-    mol.RenumberAtoms(atoms);
-    
-    OBGraphSym gs(&mol);
-    gs.GetSymmetry(symmetry_classes);
-    gs.CanonicalLabels(canon_order);
- */
     cout << "CANORDER: ";
     for (unsigned int i = 0; i < canon_order.size(); ++i)
       cout << canon_order.at(i) << " ";
     cout << endl;
-
     cout << "IDORDER: ";
     FOR_ATOMS_OF_MOL (atom, mol)
       cout << atom->GetId() << " ";
     cout << endl;
+    */
 
 
-    OBStereoisomer isomers(&mol);
-    OBStereoFacade stereoFacade(&mol);
-    // print number of stereomers
-    cout << "Enantiomer pairs: " << isomers.numEnantiomerPairs() << endl;
-    cout << "Diastereomers: " << isomers.numDiastereomers() << endl;
+  OBStereoisomer isomers(&mol);
+  OBStereoFacade stereoFacade(&mol);
+  // print number of stereomers
+  cout << "Enantiomer pairs: " << isomers.numEnantiomerPairs() << endl;
+  cout << "Diastereomers: " << isomers.numDiastereomers() << endl;
 
 
-    std::vector<unsigned long> canIds;
-    cout << "XXX parities2: ";
-    OBStereoisomer::ParityVec parities2;
-    FOR_ATOMS_OF_MOL (atom, mol) {
-      if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
-        int index = getStereoIndex(&*atom, canon_order, symmetry_classes);
-        //int index = getStereoIndex(&*atom, canon_order, canon_order);
-        cout << index << " ";
-        parities2.push_back(index);
-      }
-    }
-    cout << endl;
+  std::vector<unsigned long> canIds;
  
     // print the parities for the molecule
     cout << "XXX parities sym: ";
-    OBStereoisomer::ParityVec parities, lastParities, canParities, idParities, parities3;
+    OBStereoisomer::ParityVec parities, lastParities, canParities, idParities;
     std::vector<OBTetrahedralStereo::Config> configs;
     std::vector<unsigned long> atomIds;
     FOR_ATOMS_OF_MOL (atom, mol) {
       if (stereoFacade.HasTetrahedralStereo(atom->GetId())) {
         OBTetrahedralStereo *ts = stereoFacade.GetTetrahedralStereo(atom->GetId());
-        parities3.push_back(configParityPaper(ts, &mol, canon_order));
-        OBTetrahedralStereo::Config config = stereoFacade.GetTetrahedralStereo(atom->GetId())->GetConfig();
+        OBTetrahedralStereo::Config config = ts->GetConfig();
         atomIds.push_back(config.center);
         canIds.push_back(canon_order.at(atom->GetIndex()));
         int symParity = configParity(config, &mol, symmetry_classes);
@@ -273,26 +198,75 @@ std::string canonicalSmiles(const std::string &smiles, std::vector<std::string> 
       cout << canIds.at(i) << " ";
     cout << "    inversion = " << OBStereo::NumInversions(canIds) << endl;
 
-    /*
-    if (OBStereo::NumInversions(canIds)) {
-      std::vector<Holder> holders;
-      for (unsigned int i = 0; i < canIds.size(); ++i) {
-        Holder holder;
-        holder.canId = canIds.at(i);
-        holder.parity = canParities.at(i);
-        holders.push_back(holder);
-      }
-      std::sort(holders.begin(), holders.end(), compare());
-      canParities.clear();
-      for (unsigned int i = 0; i < canIds.size(); ++i)
-        canParities.push_back(holders.at(i).parity);
-    }
-*/
     std::vector<std::string> canonicalCandidates;
 
 
     lastParities = canParities;
-    // print all stereomers
+    //
+    // Handle enantiomers
+    //
+    const std::vector<OBStereoisomer::Enantiomer> &enantiomers = isomers.enantiomers();
+    for (unsigned int i = 0; i < enantiomers.size(); ++i) {
+      std::vector<std::string> candidates;
+      cout << "  enantiomer " << i+1 << endl;
+      cout << "    parities: ";
+      bool foundEnantiomer = false;
+      for (unsigned int j = 0; j < enantiomers.at(i).parities.size(); ++j) {
+        const OBStereoisomer::ParityVec &pv = enantiomers.at(i).parities.at(j);
+        cout << "    ";
+        for (unsigned int k = 0; k < pv.size(); ++k) {
+          if (lastParities.at(k) != pv.at(k)) {
+            permutateConfig(configs, k);
+          }
+          cout << pv.at(k) << " ";
+        }
+        cout << endl;
+        if (pv == canParities) {
+          cout << "  ----> found enantiomer matching input structure: " << conv.WriteString(&mol);
+          foundEnantiomer = true;
+        }
+        lastParities = pv;
+        storeConfigs(&mol, configs, stereoFacade);
+        std::string candidate = conv.WriteString(&mol); 
+        cout << "CANDIDATE: " << candidate;
+        candidates.push_back(candidate);
+      }
+        
+      if (foundEnantiomer)   
+        canonicalCandidates = candidates;
+
+      foundEnantiomer = false;
+      candidates.clear();
+      cout << "    inverseParities: ";
+      for (unsigned int j = 0; j < enantiomers.at(i).inverseParities.size(); ++j) {
+        const OBStereoisomer::ParityVec &pv = enantiomers.at(i).inverseParities.at(j);
+        cout << "    ";
+        for (unsigned int k = 0; k < pv.size(); ++k) {
+          if (lastParities.at(k) != pv.at(k)) {
+            permutateConfig(configs, k);
+          }
+          cout << pv.at(k) << " ";
+        }
+        cout << endl;
+        if (pv == canParities) {
+          cout << "  ----> found enantiomer matching input structure: " << conv.WriteString(&mol);
+          foundEnantiomer = true;
+        }
+        lastParities = pv;
+        storeConfigs(&mol, configs, stereoFacade);
+        std::string candidate = conv.WriteString(&mol); 
+        cout << "CANDIDATE: " << candidate;
+        candidates.push_back(candidate);
+      }
+
+      if (foundEnantiomer)   
+        canonicalCandidates = candidates;
+
+    }
+
+    //
+    // Handle diastereomers
+    //
     const std::vector<OBStereoisomer::Diastereomer> &diastereomers = isomers.diastereomers();
     for (unsigned int i = 0; i < diastereomers.size(); ++i) {
       std::vector<std::string> candidates;
@@ -319,23 +293,9 @@ std::string canonicalSmiles(const std::string &smiles, std::vector<std::string> 
         cout << "CANDIDATE: " << candidate;
         candidates.push_back(candidate);
       }
-
-
-      /*
-      if (!ref.empty())
-        if (std::find(candidates.begin(), candidates.end(), ref) != candidates.end())
-          canonicalCandidates = candidates;
-      else
-      */
-        if (foundDiastereomer)   
-          canonicalCandidates = candidates;
-        /*
-      if (std::find(candidates.begin(), candidates.end(), ref) != candidates.end()) {
-        cout << "CANDIDATE FOUND : " << candidates.size() << endl;
-               canonicalCandidates = candidates;
-      }
-      */
- 
+        
+      if (foundDiastereomer)   
+        canonicalCandidates = candidates;
     }
     cout << "XXX: " << canonicalCandidates.size() << "   Inv = " << OBStereo::NumInversions(canIds) << endl;
 
@@ -371,7 +331,7 @@ bool doShuffleTest(const std::string &smiles)
   // read a smiles string
   OB_REQUIRE( canConv.ReadString(&mol, smiles) );
 
-  int N = 200;
+  int N = 50;
   testCount++;
 
   std::vector<OBAtom*> atoms;
@@ -391,7 +351,7 @@ bool doShuffleTest(const std::string &smiles)
     mol.RenumberAtoms(atoms);
     // get can smiles
     std::string smiles = smiConv.WriteString(&mol);
-    std::string cansmi = canonicalSmiles(smiles, candidates, ref);
+    std::string cansmi = canonicalSmiles(smiles, candidates);
     allCandidates.push_back(candidates);
     OB_ASSERT( cansmi == ref );
     // comapare with ref
@@ -448,7 +408,7 @@ bool doShuffleTestFile(const std::string &filename)
     mol.RenumberAtoms(atoms);
     // get can smiles
     std::string smiles = canConv.WriteString(&mol);
-    std::string cansmi = canonicalSmiles(smiles, candidates, ref);
+    std::string cansmi = canonicalSmiles(smiles, candidates);
     allCandidates.push_back(candidates);
     OB_ASSERT( cansmi == ref );
     // comapare with ref
@@ -470,69 +430,30 @@ bool doShuffleTestFile(const std::string &filename)
   return result;
 }
 
-
-
-
-
-
-
-
-
-
-/*
-bool doShuffleTest(const std::string &smiles)
-{
-  cout << "Shuffling: " << smiles << endl;
-  // read a smiles string
-  OBMol mol;
-  OBConversion conv;
-  OB_REQUIRE( conv.SetInFormat("smi") );
-  OB_REQUIRE( conv.SetOutFormat("can") );
-  // read a smiles string
-  OB_REQUIRE( conv.ReadString(&mol, smiles) );
-
-  int N = 200;
-  unsigned int errors = 0;
-  count++;
-
-  std::vector<OBAtom*> atoms;
-  FOR_ATOMS_OF_MOL(atom, mol)
-    atoms.push_back(&*atom);
-      
-  std::string ref = conv.WriteString(&mol);
-  cout << "ref = " << ref;
-  
-  for (int i = 0; i < N; ++i) {
-    // shuffle the atoms
-    std::random_shuffle(atoms.begin(), atoms.end());
-    mol.RenumberAtoms(atoms);
-    // get can smiles
-    std::string cansmi = conv.WriteString(&mol);
-    // comapare with ref
-    if (cansmi != ref) {
-      cout << " " << cansmi;
-      failed++;
-      return false;
-    }
-  }
-
-  return true;
-}
-*/
-
 int main(int argc, char **argv)
 {
+  if (argc == 2) {
+    OB_ASSERT( doShuffleTestFile(argv[1]) );
+    return 0;
+  }
+
   //OB_ASSERT( doShuffleTest("O[C@H]1CC[C@@H](O)CC1") );
   //OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@H](O)C1") );
   //OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@@H](O)C1") );
 
-
+  // 
+  // Enantiomers only
+  //
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_5_spec.mol") );
+  
+ 
+  //
+  // Diastereomers only
+  //
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanediol_D1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanediol_D2.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D2.mol") );
-
-
   // These work for mol files, not for smiles?????
   OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D2.mol") );
@@ -542,6 +463,20 @@ int main(int argc, char **argv)
 //  OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@H]([C@H]1C)C)C)C") );	
   //OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@H]([C@@H]1C)C)C)C") );	
   //OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@@H]([C@H]1C)C)C)C") );	
+
+
+  // Mixed: enantiomers + diastereomers
+  OB_ASSERT( doShuffleTestFile("stereo/inositol_cis.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/inositol_epi.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/inositol_allo.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/inositol_myo.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/inositol_muco.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/inositol_neo.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/inositol_scyllo.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/inositol_chiroD.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/inositol_chiroL.mol") );
+ 
+
 
 
 

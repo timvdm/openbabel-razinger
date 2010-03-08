@@ -94,13 +94,19 @@ int main(int argc,char **argv)
       break;
 
     OBGraphSym sym(&mol);
-    std::vector<unsigned int> symmetry_classes;
+    std::vector<unsigned int> symmetry_classes, can_order;
 //    sym.GetSymmetry(symmetry_classes, false);
     sym.GetSymmetry(symmetry_classes);
+    sym.CanonicalLabels(can_order);
 
     cout << "atom number -> symmetry class" << endl;
     for (unsigned int i = 0; i < symmetry_classes.size(); ++i) {
       cout << i+1 << " -> " << symmetry_classes[i] << endl;
+    }
+ 
+    cout << "atom number -> canonical order" << endl;
+    for (unsigned int i = 0; i < can_order.size(); ++i) {
+      cout << i+1 << " -> " << can_order[i] << endl;
     }
       
   } // end for loop
