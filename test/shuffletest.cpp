@@ -119,23 +119,32 @@ void storeConfigs(OBMol *mol, const std::vector<OBTetrahedralStereo::Config> &co
   }
 }
 
-
-std::string canonicalSmiles(const std::string &smiles, std::vector<std::string> &out_candidates)
+std::string canonicalSmiles(OBMol &mol_orig, std::vector<std::string> &out_candidates)
 {
-  // read a smiles string
   OBMol mol;
+  // read a smiles string
   OBConversion conv;
   OB_REQUIRE( conv.SetInFormat("smi") );
   OB_REQUIRE( conv.SetOutFormat("can") );
-  // read a smiles string
-  OB_REQUIRE( conv.ReadString(&mol, smiles) );
 
   std::vector<unsigned int> symmetry_classes, canon_order;
+
+  // FIXME : why is this needed??
+  std::string smiles = conv.WriteString(&mol_orig); 
+  conv.ReadString(&mol, smiles);
 
   OBGraphSym gs(&mol);
   gs.GetSymmetry(symmetry_classes);
   gs.CanonicalLabels(canon_order);
- 
+ /*
+  std::vector<OBAtom*> atoms(mol.NumAtoms());
+  FOR_ATOMS_OF_MOL(atom, mol)
+    atoms[canon_order.at(atom->GetIndex())-1] = &*atom;
+    
+  mol.RenumberAtoms(atoms);
+   gs.GetSymmetry(symmetry_classes);
+  gs.CanonicalLabels(canon_order);
+*/ 
     /*
     cout << "SYMCLASSES: ";
     for (unsigned int i = 0; i < symmetry_classes.size(); ++i)
@@ -341,7 +350,7 @@ bool doShuffleTest(const std::string &smiles)
   std::vector< std::vector<std::string> > allCandidates; 
 
   std::vector<std::string> candidates;
-  std::string ref = canonicalSmiles(smiles, candidates);
+  std::string ref = canonicalSmiles(mol, candidates); // FIXME
   cout << "ref = " << ref;
  
   bool result = true;
@@ -350,8 +359,7 @@ bool doShuffleTest(const std::string &smiles)
     std::random_shuffle(atoms.begin(), atoms.end());
     mol.RenumberAtoms(atoms);
     // get can smiles
-    std::string smiles = canConv.WriteString(&mol); // FIXME
-    std::string cansmi = canonicalSmiles(smiles, candidates);
+    std::string cansmi = canonicalSmiles(mol, candidates); // FIXME
     allCandidates.push_back(candidates);
     OB_ASSERT( cansmi == ref );
     // comapare with ref
@@ -398,7 +406,7 @@ bool doShuffleTestFile(const std::string &filename)
   std::vector< std::vector<std::string> > allCandidates; 
 
   std::vector<std::string> candidates;
-  std::string ref = canonicalSmiles(smiles, candidates);
+  std::string ref = canonicalSmiles(mol, candidates); // FIXME
   cout << "ref = " << ref;
  
   bool result = true;
@@ -407,8 +415,7 @@ bool doShuffleTestFile(const std::string &filename)
     std::random_shuffle(atoms.begin(), atoms.end());
     mol.RenumberAtoms(atoms);
     // get can smiles
-    std::string smiles = canConv.WriteString(&mol); // FIXME
-    std::string cansmi = canonicalSmiles(smiles, candidates);
+    std::string cansmi = canonicalSmiles(mol, candidates); // FIXME
     allCandidates.push_back(candidates);
     OB_ASSERT( cansmi == ref );
     // comapare with ref
