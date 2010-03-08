@@ -80,7 +80,7 @@ int configParityPaper(OBTetrahedralStereo *ts, OBMol *mol,
     const std::vector<unsigned int> &canon_order)
 {
   OBTetrahedralStereo::Config cfg = ts->GetConfig();
-  //IdsToSymClasses(mol, cfg, canon_order); // FIXME
+  IdsToSymClasses(mol, cfg, canon_order); // FIXME
 
   // lowest priority = highest canonical
   // H = lowest priority
@@ -440,7 +440,7 @@ int main(int argc, char **argv)
   //OB_ASSERT( doShuffleTest("O[C@H]1CC[C@@H](O)CC1") );
   //OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@H](O)C1") );
   //OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@@H](O)C1") );
-
+  
   // 
   // Enantiomers only
   //
@@ -454,7 +454,7 @@ int main(int argc, char **argv)
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanediol_D2.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D2.mol") );
-  // These work for mol files, not for smiles?????
+  // These work for mol files, not for smiles????? See graphsymtest.cpp
   OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D2.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D3.mol") );
@@ -475,9 +475,16 @@ int main(int argc, char **argv)
   OB_ASSERT( doShuffleTestFile("stereo/inositol_scyllo.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/inositol_chiroD.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/inositol_chiroL.mol") );
- 
+  
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec1.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec2.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec3.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec4.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec5.mol") );
 
-
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_20_spec1.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_26_spec1.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_59_spec1.mol") );
 
 
   //OB_ASSERT( doShuffleTest("O[C@H]1[C@@H](O)[C@H](O)[C@H](O)[C@H](O)[C@H]1O") );

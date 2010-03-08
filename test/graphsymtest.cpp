@@ -139,7 +139,8 @@ int main()
   genericGraphSymTest("CCC[C@@H]1C[C@H](N(C1)C)C(=O)NC([C@@H]2[C@@H]([C@@H]([C@H]([C@H](O2)SC)OP(=O)(O)O)O)O)C(C)Cl");
   genericGraphSymTest("CC(C)[C@H]1CC[C@]([C@@H]2[C@@H]1C=C(COC2=O)C(=O)O)(CCl)O");
   genericGraphSymTest("CC(C)[C@@]12C[C@@H]1[C@@H](C)C(=O)C2");
-  
+ 
+  // These should be the same right??? 
   countGraphSymClassesTest("stereo/cyclobutane_D1.mol", 8, true);
   countGraphSymClassesTest("stereo/cyclobutane_D1.smi", 8, true);
 
