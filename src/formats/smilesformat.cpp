@@ -36,6 +36,8 @@ GNU General Public License for more details.
 #include <cassert>
 #include <string>
 
+#include "cansmiles.h"
+
 //#define DEBUG 1
 
 using namespace std;
@@ -3850,6 +3852,12 @@ struct compareConfigHolder {
 
     if (mol.NumAtoms() > 0) {
       CreateCansmiString(mol, buffer, fragatoms, !pConv->IsOption("i"), pConv);
+    }
+
+    if (pConv->IsOption("c")) {
+
+    
+    
     }
 
     ofs << buffer;

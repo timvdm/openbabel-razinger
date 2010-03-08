@@ -1,4 +1,3 @@
-#include "obtest.h"
 #include <openbabel/mol.h>
 #include <openbabel/obconversion.h>
 
@@ -15,12 +14,6 @@
 using std::cout;
 using std::endl;
 using namespace OpenBabel;
-
-std::string GetFilename(const std::string &filename)
-{
-  string path = TESTDATADIR + filename;
-  return path;
-}
 
 
 
@@ -100,13 +93,13 @@ void storeConfigs(OBMol *mol, const std::vector<OBTetrahedralStereo::Config> &co
   }
 }
 
-std::string canonicalSmiles(OBMol &mol_orig, std::vector<std::string> &out_candidates)
+std::string canonicalSmiles(OBMol &mol_orig)
 {
   OBMol mol;
   // read a smiles string
   OBConversion conv;
-  OB_REQUIRE( conv.SetInFormat("smi") );
-  OB_REQUIRE( conv.SetOutFormat("can") );
+  conv.SetInFormat("smi");
+  conv.SetOutFormat("can");
 
   std::vector<unsigned int> symmetry_classes, canon_order;
 
@@ -258,233 +251,9 @@ std::string canonicalSmiles(OBMol &mol_orig, std::vector<std::string> &out_candi
   //cout << "  True canonical SMILES: ";
   //cout << canonicalCandidates.front() << endl;
 
-  out_candidates = canonicalCandidates;
-
   return canonicalCandidates.front();
 }
 
-static unsigned int failed = 0;
-static unsigned int testCount = 0;
 
 
-
-bool doShuffleTest(const std::string &smiles)
-{
-  cout << " True Shuffling: " << smiles << endl;
-  // read a smiles string
-  OBMol mol;
-  OBConversion canConv, smiConv;
-  OB_REQUIRE( canConv.SetInFormat("smi") );
-  OB_REQUIRE( canConv.SetOutFormat("can") );
-  OB_REQUIRE( smiConv.SetOutFormat("smi") );
-  // read a smiles string
-  OB_REQUIRE( canConv.ReadString(&mol, smiles) );
-
-  int N = 50;
-  testCount++;
-
-  std::vector<OBAtom*> atoms;
-  FOR_ATOMS_OF_MOL(atom, mol)
-    atoms.push_back(&*atom);
-  
-  std::vector< std::vector<std::string> > allCandidates; 
-
-  std::vector<std::string> candidates;
-  std::string ref = canonicalSmiles(mol, candidates); // FIXME
-  cout << "ref = " << ref;
- 
-  bool result = true;
-  for (int i = 0; i < N; ++i) {
-    // shuffle the atoms
-    std::random_shuffle(atoms.begin(), atoms.end());
-    mol.RenumberAtoms(atoms);
-    // get can smiles
-    cout << "SMILES: " << smiConv.WriteString(&mol);
-    std::string cansmi = canonicalSmiles(mol, candidates); // FIXME
-    allCandidates.push_back(candidates);
-    OB_ASSERT( cansmi == ref );
-    // comapare with ref
-    if (cansmi != ref) {
-      cout << " " << cansmi;
-      if (result)
-        failed++;
-      result = false;
-    }
-  }
-
-  unsigned int numCandidates = allCandidates.at(0).size();
-  const std::vector<std::string> &candidates2 = allCandidates.at(0);
-  for (unsigned int i = 0; i < allCandidates.size(); ++i) {
-    cout << allCandidates.at(i).at(0);
-    OB_ASSERT( allCandidates.at(i).size() == numCandidates );
-  }
-
-  return result;
-}
-
-bool doShuffleTestFile(const std::string &filename)
-{
-  cout << " True Shuffling: " << filename << endl;
-  std::string file = GetFilename(filename);
-  // read a smiles string
-  OBMol mol;
-  OBConversion canConv, smiConv;
-  OBFormat *format = canConv.FormatFromExt(file.c_str());
-  OB_REQUIRE( format );
-  OB_REQUIRE( canConv.SetInFormat(format) );
-  OB_REQUIRE( canConv.ReadFile(&mol, file) );
-  OB_REQUIRE( canConv.SetOutFormat("can") );
-  OB_REQUIRE( smiConv.SetOutFormat("smi") );
-
-  std::string smiles = canConv.WriteString(&mol);
-  int N = 200;
-  testCount++;
-
-  std::vector<OBAtom*> atoms;
-  FOR_ATOMS_OF_MOL(atom, mol)
-    atoms.push_back(&*atom);
-  
-  std::vector< std::vector<std::string> > allCandidates; 
-
-  std::vector<std::string> candidates;
-  std::string ref = canonicalSmiles(mol, candidates); // FIXME
-  cout << "ref = " << ref;
- 
-  bool result = true;
-  for (int i = 0; i < N; ++i) {
-    // shuffle the atoms
-    std::random_shuffle(atoms.begin(), atoms.end());
-    mol.RenumberAtoms(atoms);
-    // get can smiles
-    std::string cansmi = canonicalSmiles(mol, candidates); // FIXME
-    allCandidates.push_back(candidates);
-    OB_ASSERT( cansmi == ref );
-    // comapare with ref
-    if (cansmi != ref) {
-      cout << " " << cansmi;
-      if (result)
-        failed++;
-      result = false;
-    }
-  }
-
-  unsigned int numCandidates = allCandidates.at(0).size();
-  const std::vector<std::string> &candidates2 = allCandidates.at(0);
-  for (unsigned int i = 0; i < allCandidates.size(); ++i) {
-    cout << allCandidates.at(i).at(0);
-    OB_ASSERT( allCandidates.at(i).size() == numCandidates );
-  }
-
-  return result;
-}
-
-bool doShuffleTestMultiFile(const std::string &filename)
-{
-  cout << " True Shuffling: " << filename << endl;
-  std::string file = GetFilename(filename);
-  // read a smiles string
-  OBMol mol;
-  OBConversion canConv;
-  OBFormat *format = canConv.FormatFromExt(file.c_str());
-  OB_REQUIRE( format );
-  OB_REQUIRE( canConv.SetInFormat(format) );
-  OB_REQUIRE( canConv.SetOutFormat("can") );
-
-  testCount++;
-
-  std::ifstream ifs;
-  ifs.open(file.c_str());
-  OB_REQUIRE( ifs );
-  OB_REQUIRE( canConv.Read(&mol, &ifs) );
-
-  std::vector<std::string> candidates;
-  std::string ref = canonicalSmiles(mol, candidates); // FIXME
-  cout << "ref = " << ref;
- 
-  bool result = true;
-  while (canConv.Read(&mol, &ifs)) {
-    // get can smiles
-    std::string cansmi = canonicalSmiles(mol, candidates); // FIXME
-    OB_ASSERT( cansmi == ref );
-    // comapare with ref
-    if (cansmi != ref) {
-      cout << " " << cansmi;
-      if (result)
-        failed++;
-      result = false;
-    }
-  }
-
-  return result;
-}
-
-int main(int argc, char **argv)
-{
-  if (argc == 2) {
-    OB_ASSERT( doShuffleTestFile(argv[1]) );
-    return 0;
-  }
-
-  OB_ASSERT( doShuffleTestMultiFile("stereo/shuffle_multi1.smi") );
-  OB_ASSERT( doShuffleTestMultiFile("stereo/shuffle_multi2.smi") );
-
-  OB_ASSERT( doShuffleTest("O[C@H]1CC[C@@H](O)CC1") );
-  OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@H](O)C1") );
-  OB_ASSERT( doShuffleTest("O[C@H]1C[C@@H](O)C[C@@H](O)C1") );
-  
-  OB_ASSERT( doShuffleTest("[C@@H]1([C@H]([C@H]([C@H]1C)C)C)C") );
-  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D1.smi") );
-  
-  // 
-  // Enantiomers only
-  //
-  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_5_spec.mol") );
-  
- 
-  //
-  // Diastereomers only
-  //
-  OB_ASSERT( doShuffleTestFile("stereo/cyclohexanediol_D1.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/cyclohexanediol_D2.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D1.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D2.mol") );
-  // These work for mol files, not for smiles????? See graphsymtest.cpp
-  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D1.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D2.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D3.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D4.mol") );
-  OB_ASSERT( doShuffleTest("[C@@H]1([C@H]([C@H]([C@H]1C)C)C)C") );
-  OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@H]([C@H]1C)C)C)C") );	
-  OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@H]([C@@H]1C)C)C)C") );	
-  OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@@H]([C@H]1C)C)C)C") );	
-
-  // Mixed: enantiomers + diastereomers
-  OB_ASSERT( doShuffleTestFile("stereo/inositol_cis.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/inositol_epi.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/inositol_allo.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/inositol_myo.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/inositol_muco.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/inositol_neo.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/inositol_scyllo.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/inositol_chiroD.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/inositol_chiroL.mol") );
-  
-  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec1.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec2.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec3.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec4.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_19_spec5.mol") );
-
-  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_20_spec1.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_26_spec1.mol") );
-  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_59_spec1.mol") );
-  
-  OB_ASSERT( doShuffleTest("O[C@H]1[C@@H](O)[C@H](O)[C@H](O)[C@H](O)[C@H]1O") );
-  
-  //OB_ASSERT( doShuffleTest("") );
-
-  cout << "PASSED TESTS: " << testCount - failed << "/" << testCount << endl;
-
-  return 0;
-}
 

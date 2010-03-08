@@ -3,6 +3,7 @@ set(formats_common
   mdlformat
   mol2format
   pdbformat
+  can2format
  )
 set(formats_utility
   copyformat
