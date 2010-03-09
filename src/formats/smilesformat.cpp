@@ -36,8 +36,6 @@ GNU General Public License for more details.
 #include <cassert>
 #include <string>
 
-#include "cansmiles.h"
-
 //#define DEBUG 1
 
 using namespace std;

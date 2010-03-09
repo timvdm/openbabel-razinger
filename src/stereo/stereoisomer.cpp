@@ -112,18 +112,21 @@ namespace OpenBabel {
     unsigned int numCisTrans = 0;
 
     // make a list of stereo atom indexes
-    std::vector<unsigned int> stereoAtoms;
+    std::vector<unsigned int> stereoAtoms, tetrahedralAtoms;
     for (vector<StereogenicUnit>::iterator unit = stereoUnits.begin(); unit != stereoUnits.end(); ++unit) {
       if (unit->type == OBStereo::Tetrahedral) {
         OBAtom *atom = mol->GetAtomById(unit->id);
         stereoAtoms.push_back(atom->GetIndex()+1);
+        tetrahedralAtoms.push_back(atom->GetIndex()+1);
         numTetrahedral++;
       } else if (unit->type == OBStereo::CisTrans) {
         OBBond *bond = mol->GetBondById(unit->id);
         OBAtom *begin = bond->GetBeginAtom();
         OBAtom *end = bond->GetEndAtom();
-        stereoAtoms.push_back(begin->GetIndex()+1);
-        stereoAtoms.push_back(end->GetIndex()+1);
+        if (begin->GetIndex() < end->GetIndex())
+          stereoAtoms.push_back(begin->GetIndex()+1);
+        else
+          stereoAtoms.push_back(end->GetIndex()+1);
         numCisTrans++;
       }
     }
@@ -157,7 +160,12 @@ namespace OpenBabel {
 
     n = numTetrahedral + numCisTrans;
 
-    /*
+#ifdef DEBUG_STEREOISOMER
+    cout << "StereoIndexVectors:" << endl;
+    for (unsigned int idx = 0; idx < stereoIndexVectors.size(); ++idx)
+      cout << "stereoindex:" << endl << stereoIndexVectors.at(idx) << endl;
+#endif
+
     //
     // Reduce the stereoindex vectors (i.e. CisTrans 2 entries -> 1 entry)
     //
@@ -169,24 +177,25 @@ namespace OpenBabel {
           reducedIndex[j] = stereoIndexVectors.at(idx)[j];
         // reduce the cis/trans entries
         unsigned int i = numTetrahedral;
-        for (unsigned int j = numTetrahedral; j < numTetrahedral + 2 * numCisTrans; j += 2)
+        for (unsigned int j = numTetrahedral; j < numTetrahedral + 2 * numCisTrans-1; j += 2) {
           reducedIndex[i++] = stereoIndexVectors.at(idx)[j] * stereoIndexVectors.at(idx)[j+1];
+        }
 
         stereoIndexVectors[idx] = reducedIndex;
       }
     }
 
-    // debug: print out reduced stereoindex vectors
+#ifdef DEBUG_STEREOISOMER
     cout << "Reduced StereoIndexVectors:" << endl;
     for (unsigned int idx = 0; idx < stereoIndexVectors.size(); ++idx)
       cout << "reduced stereoindex:" << endl << stereoIndexVectors.at(idx) << endl;
-    */
+#endif
 
     //
     // Compute (reduced) signed permutation matrices
     //
     std::vector<Eigen::MatrixXi> signedMatrices;
-    signedPermutationMatrices(Gc, stereoIndexVectors, signedMatrices, numTetrahedral, numCisTrans, n);
+    signedPermutationMatrices(Gc, stereoIndexVectors, signedMatrices, tetrahedralAtoms, numCisTrans, n);
 
     Eigen::MatrixXi parityMatrix = stereoParityMatrix(n);
 
@@ -312,8 +321,10 @@ namespace OpenBabel {
    
     }
 
+#ifdef DEBUG_STEREOISOMER
     cout << "numEnantionmers: " << 2*numEnantiomers << endl;
     cout << "numDiastereomers: " << numDiastereomers << endl;
+#endif
 
     m_numEnantiomerPairs = numEnantiomers;
     m_numDiastereomers = numDiastereomers;

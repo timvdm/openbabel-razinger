@@ -17,22 +17,36 @@ namespace OpenBabel {
   }
 
   void signedPermutationMatrices(const PermutationGroup &Gc, const std::vector<Eigen::VectorXi> &stereoIndexVectors, 
-      std::vector<Eigen::MatrixXi> &signedMatrices, int numTetrahedral, int numCisTrans, int n)
+      std::vector<Eigen::MatrixXi> &signedMatrices, const std::vector<unsigned int> &tetrahedralAtoms, int numCisTrans, int n)
   {
+    int numTetrahedral = tetrahedralAtoms.size();
     //cout << "signedPermutationMatrices" << endl;
     for (unsigned int g = 0; g < Gc.permutations.size(); ++g) {
       const Permutation &p = Gc.permutations.at(g);
 
-
-      //cout << "matrix p" << g+1 << endl << p.matrix() << endl;
-      //cout << stereoIndexVectors.at(g) << endl;
-      Eigen::MatrixXi P = p.matrix();
       Eigen::MatrixXi Ps = Eigen::MatrixXi::Zero(n, n);
-      for (unsigned int j = 0; j < numTetrahedral; ++j)
-        for (unsigned int k = 0; k < numTetrahedral; ++k)
-          Ps(k, j) = P(k, j) * stereoIndexVectors.at(g)[k];
-      for (unsigned int j = numTetrahedral; j < numTetrahedral + numCisTrans; ++j)
-        Ps(j, j) = stereoIndexVectors.at(g)[j];
+ 
+      std::vector<unsigned int> tetrahedralMap, cistransMap;
+      for (unsigned int i = 0; i < p.map.size(); ++i)
+        if (std::find(tetrahedralAtoms.begin(), tetrahedralAtoms.end(), p.map.at(i)) != tetrahedralAtoms.end())
+          tetrahedralMap.push_back(p.map.at(i));
+        else
+          cistransMap.push_back(p.map.at(i));
+     
+      if (numTetrahedral) {
+        Permutation p2(tetrahedralMap);
+        Eigen::MatrixXi P = p2.matrix();
+        for (unsigned int j = 0; j < numTetrahedral; ++j)
+          for (unsigned int k = 0; k < numTetrahedral; ++k)
+            Ps(k, j) = P(k, j) * stereoIndexVectors.at(g)[k];
+      }
+      if (numCisTrans) {
+        Permutation p2(cistransMap);
+        Eigen::MatrixXi P = p2.matrix();
+        for (unsigned int j = numTetrahedral; j < numTetrahedral + numCisTrans; ++j)
+          for (unsigned int k = numTetrahedral; k < numTetrahedral + numCisTrans; ++k)
+            Ps(k, j) = P(k - numTetrahedral, j - numTetrahedral) * stereoIndexVectors.at(g)[k];
+      }
 
       signedMatrices.push_back( Ps );
 
@@ -124,7 +138,7 @@ namespace OpenBabel {
         }
       }
       std::sort(indexes.begin(), indexes.end());
-      stereoIndex.resize(stereoUnits.size());
+      
       for (vector<StereogenicUnit>::const_iterator unit = stereoUnits.begin(); unit != stereoUnits.end(); ++unit) {
         if (unit->type == OBStereo::Tetrahedral) {
           OBAtom *atom = mol->GetAtomById(unit->id);
@@ -148,23 +162,43 @@ namespace OpenBabel {
           }
         }
       }
-      /*
+
+      int numTetrahedral = indexes.size();
+      indexes.clear();
+
+      for (vector<StereogenicUnit>::const_iterator unit = stereoUnits.begin(); unit != stereoUnits.end(); ++unit) {
+        if (unit->type == OBStereo::CisTrans) {
+          OBBond *bond = mol->GetBondById(unit->id);
+          indexes.push_back(bond->GetBeginAtom()->GetIndex());
+          indexes.push_back(bond->GetEndAtom()->GetIndex());
+        }
+      } 
+      std::sort(indexes.begin(), indexes.end());
       for (vector<StereogenicUnit>::const_iterator unit = stereoUnits.begin(); unit != stereoUnits.end(); ++unit) {
         if (unit->type == OBStereo::CisTrans) {
           OBBond *bond = mol->GetBondById(unit->id);
           //std::cout << "bond id: " << bond->GetId() << std::endl;
 
+          //compute the insert position
+          unsigned int insertpos_begin, insertpos_end;
+          for (unsigned int i = 0; i < indexes.size(); ++i)
+            if (indexes.at(i) == bond->GetBeginAtom()->GetIndex()) {
+              insertpos_begin = i + numTetrahedral;
+            } else if (indexes.at(i) == bond->GetEndAtom()->GetIndex()) {
+              insertpos_end = i + numTetrahedral;
+            }
+
+
           if (!unit->para) {
-            stereoIndex[k++] = 1;
-            stereoIndex[k++] = 1;
+            stereoIndex[insertpos_begin] = 1;
+            stereoIndex[insertpos_end] = 1;
           } else {
             // need to count the number of permutations for
-            stereoIndex[k++] = getStereoIndex(bond->GetBeginAtom(), pFull, symmetry_classes);
-            stereoIndex[k++] = getStereoIndex(bond->GetEndAtom(), pFull, symmetry_classes);
+            stereoIndex[insertpos_begin] = getStereoIndex(bond->GetBeginAtom(), pFull, symmetry_classes);
+            stereoIndex[insertpos_end] = getStereoIndex(bond->GetEndAtom(), pFull, symmetry_classes);
           }
         }
       }
-      */
 
       //std::cout << "stereoIndex =" << std::endl;
       //std::cout << stereoIndex << std::endl;

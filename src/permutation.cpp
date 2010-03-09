@@ -92,7 +92,7 @@ namespace OpenBabel {
     bliss::Stats stats;
     g.find_automorphisms(stats, &callback, &generators);
 
-    cout << "# Automorphisms:" << stats.group_size_approx << endl;
+    //cout << "# Automorphisms:" << stats.group_size_approx << endl;
     unsigned long nAut = stats.group_size_approx;
 
     // construct the automorphism group
@@ -126,10 +126,12 @@ namespace OpenBabel {
         break;
     }
 
+    /*
     if (nAut != G.size())
       cout << "ERROR: Not all " << nAut << " automorphisms are found!" << endl;
     else 
       cout << "SUCCESS: all " << nAut << " automorphisms are found!" << endl;
+      */
     
     return G;
   }

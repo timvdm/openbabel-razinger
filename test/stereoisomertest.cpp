@@ -18,6 +18,8 @@ std::string GetFilename(const std::string &filename)
   return path;
 }
 
+static int testCount = 0;
+
 bool doStereoisomerTest(OBMol &mol, int numEnantiomerPairs, int numDiastereomers)
 {
   OBStereoisomer isomers(&mol);
@@ -25,8 +27,11 @@ bool doStereoisomerTest(OBMol &mol, int numEnantiomerPairs, int numDiastereomers
   OB_COMPARE(isomers.numEnantiomerPairs(), numEnantiomerPairs);
   OB_COMPARE(isomers.numDiastereomers(), numDiastereomers);
 
+  testCount++;
+
   return (isomers.numEnantiomerPairs() == numEnantiomerPairs) && (isomers.numDiastereomers() == numDiastereomers);
 }
+
 
 /**
  * Test detection of stereoisomers
@@ -59,8 +64,11 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
   cout << "Razinger paper, fig. 3" << endl;
   OB_REQUIRE( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig3.mol")) );
   OB_ASSERT( doStereoisomerTest(mol, 3, 4) );
-
-
+  
+  cout << "Razinger paper, fig. 6" << endl;
+  OB_REQUIRE( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig6.mol")) );
+  OB_ASSERT( doStereoisomerTest(mol, 2, 3) );
+ 
 
   std::vector<int> failed;
   /*
@@ -184,11 +192,11 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_29.mol")) );
   { bool result = doStereoisomerTest(mol, 1, 2); OB_ASSERT( result ); if (!result) failed.push_back(29); }
 
-  /*
   cout << "Razinger paper, fig. 7: structure 30" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_30.mol")) );
-  { bool result = doStereoisomerTest(mol, 0, 2);
+  { bool result = doStereoisomerTest(mol, 0, 2); OB_ASSERT( result ); if (!result) failed.push_back(30); }
 
+  /*
   cout << "Razinger paper, fig. 7: structure 31" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_31.mol")) );
   { bool result = doStereoisomerTest(mol, 1, 0) );
@@ -200,64 +208,67 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
   cout << "Razinger paper, fig. 7: structure 33" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_33.mol")) );
   { bool result = doStereoisomerTest(mol, 1, 0) );
-
+  */
+  
   cout << "Razinger paper, fig. 7: structure 34" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_34.mol")) );
-  { bool result = doStereoisomerTest(mol, 1, 2) );
-
+  { bool result = doStereoisomerTest(mol, 1, 2); OB_ASSERT( result ); if (!result) failed.push_back(34); }
+  
   cout << "Razinger paper, fig. 7: structure 35" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_35.mol")) );
-  { bool result = doStereoisomerTest(mol, 0, 3) );
+  { bool result = doStereoisomerTest(mol, 0, 3); OB_ASSERT( result ); if (!result) failed.push_back(35); }
 
   cout << "Razinger paper, fig. 7: structure 36" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_36.mol")) );
-  { bool result = doStereoisomerTest(mol, 2, 2) );
+  { bool result = doStereoisomerTest(mol, 2, 2); OB_ASSERT( result ); if (!result) failed.push_back(36); }
 
   cout << "Razinger paper, fig. 7: structure 37" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_37.mol")) );
-  { bool result = doStereoisomerTest(mol, 2, 2) );
+  { bool result = doStereoisomerTest(mol, 2, 2); OB_ASSERT( result ); if (!result) failed.push_back(37); }
 
   cout << "Razinger paper, fig. 7: structure 38" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_38.mol")) );
-  { bool result = doStereoisomerTest(mol, 2, 3) );
+  { bool result = doStereoisomerTest(mol, 2, 3); OB_ASSERT( result ); if (!result) failed.push_back(38); }
 
+/*
   cout << "Razinger paper, fig. 7: structure 39" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_39.mol")) );
-  { bool result = doStereoisomerTest(mol, 3, 1) );
-
+  { bool result = doStereoisomerTest(mol, 3, 1); OB_ASSERT( result ); if (!result) failed.push_back(39); }
+  */  
+  /*
   cout << "Razinger paper, fig. 7: structure 40" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_40.mol")) );
   { bool result = doStereoisomerTest(mol, 2, 3) );
-
+*/
   cout << "Razinger paper, fig. 7: structure 41" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_41.mol")) );
-  { bool result = doStereoisomerTest(mol, 1, 1) );
+  { bool result = doStereoisomerTest(mol, 1, 1); OB_ASSERT( result ); if (!result) failed.push_back(41); }
 
   cout << "Razinger paper, fig. 7: structure 42" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_42.mol")) );
-  { bool result = doStereoisomerTest(mol, 2, 3) );
+  { bool result = doStereoisomerTest(mol, 2, 3); OB_ASSERT( result ); if (!result) failed.push_back(42); }
 
   cout << "Razinger paper, fig. 7: structure 43" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_43.mol")) );
-  { bool result = doStereoisomerTest(mol, 2, 0) );
+  { bool result = doStereoisomerTest(mol, 2, 0); OB_ASSERT( result ); if (!result) failed.push_back(43); }
 
   cout << "Razinger paper, fig. 7: structure 44" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_44.mol")) );
-  { bool result = doStereoisomerTest(mol, 1, 1) );
+  { bool result = doStereoisomerTest(mol, 1, 1); OB_ASSERT( result ); if (!result) failed.push_back(44); }
 
   cout << "Razinger paper, fig. 7: structure 45" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_45.mol")) );
-  { bool result = doStereoisomerTest(mol, 1, 0) );
+  { bool result = doStereoisomerTest(mol, 1, 0); OB_ASSERT( result ); if (!result) failed.push_back(45); }
 
   cout << "Razinger paper, fig. 7: structure 46" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_46.mol")) );
-  { bool result = doStereoisomerTest(mol, 0, 2) );
-
+  { bool result = doStereoisomerTest(mol, 0, 2); OB_ASSERT( result ); if (!result) failed.push_back(46); }
+/*
   cout << "Razinger paper, fig. 7: structure 47" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_47.mol")) );
   { bool result = doStereoisomerTest(mol, 3, 0) );
   */
-
+  
   cout << "Razinger paper, fig. 7: structure 48" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_48.mol")) );
   { bool result = doStereoisomerTest(mol, 0, 2); OB_ASSERT( result ); if (!result) failed.push_back(48); }
@@ -277,7 +288,7 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
   cout << "Razinger paper, fig. 7: structure 52" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_52.mol")) );
   { bool result = doStereoisomerTest(mol, 2, 3); OB_ASSERT( result ); if (!result) failed.push_back(52); }
-
+  
   /*
   cout << "Razinger paper, fig. 7: structure 53" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_53.mol")) );
@@ -299,7 +310,7 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_57.mol")) );
   { bool result = doStereoisomerTest(mol, 4, 2); OB_ASSERT( result ); if (!result) failed.push_back(57); }
   */
-
+  
   cout << "Razinger paper, fig. 7: structure 58" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_58.mol")) );
   { bool result = doStereoisomerTest(mol, 1, 0); OB_ASSERT( result ); if (!result) failed.push_back(58); }
@@ -327,7 +338,7 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
   cout << "Razinger paper, fig. 7: structure 64" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_64.mol")) );
   { bool result = doStereoisomerTest(mol, 1, 1); OB_ASSERT( result ); if (!result) failed.push_back(64); }
-
+  
   /*
   cout << "Razinger paper, fig. 7: structure 65" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_65.mol")) );
@@ -345,15 +356,19 @@ void test_Stereoisomer(int n = 0, const std::string &file = std::string())
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_68.mol")) );
   { bool result = doStereoisomerTest(mol, 0, 3) );
   */
-
+  
   cout << "Razinger paper, fig. 7: structure 69" << endl;
   OB_ASSERT( conv.ReadFile(&mol, GetFilename("stereo/razinger_fig7_69.mol")) );
   { bool result = doStereoisomerTest(mol, 1, 7); OB_ASSERT( result ); if (!result) failed.push_back(69); }
-
-  cout << "FAILED TESTS: ";
-  for (unsigned int i = 0; i < failed.size(); ++i)
-    cout << failed.at(i) << " ";
-  cout << " [" << failed.size() << " total]" << endl;
+  
+  if (failed.size()) {
+    cout << "FAILED TESTS: ";
+    for (unsigned int i = 0; i < failed.size(); ++i)
+      cout << failed.at(i) << " ";
+    cout << " [" << failed.size() << " total]" << endl;
+  }
+  
+  cout << "PASSED TESTS: " << testCount - failed.size() << "/" << testCount << endl;
 
 //  conv.ReadString(&mol, "CC1CCC(C)CC1");
 }
@@ -495,6 +510,7 @@ void testSignedPermutationMatrices()
   // 3 5 8 9
   map[0] = 3; map[1] = 5; map[2] = 8; map[3] = 9;
   Gc.add(Permutation(map));
+  std::vector<unsigned int> tetrahedralAtoms = map;
   // 5 3 8 9
   map[0] = 5; map[1] = 3; map[2] = 8; map[3] = 9;
   Gc.add(Permutation(map));
@@ -518,7 +534,7 @@ void testSignedPermutationMatrices()
   std::vector<Eigen::VectorXi> stereoIndexVectors;
 
   std::vector<Eigen::MatrixXi> signedMatrices;
-  signedPermutationMatrices(Gc, stereoIndexVectors, signedMatrices, 4, 0, 4);
+  signedPermutationMatrices(Gc, stereoIndexVectors, signedMatrices, tetrahedralAtoms, 0, 4);
 }
 
 void testMultiplyMatrixByRow()
@@ -609,6 +625,7 @@ void testContractPermutationsForFig3()
   std::vector<unsigned int> map(6);
   map[0] = 9; map[1] = 10; map[2] = 11; map[3] = 12; map[4] = 13; map[5] = 14;
   Gc_ref.add(Permutation(map)); // 1
+  std::vector<unsigned int> tetrahedralAtoms = map;
   map[0] = 10; map[1] = 9; map[2] = 11; map[3] = 12; map[4] = 13; map[5] = 14;
   Gc_ref.add(Permutation(map)); // 2
   map[0] = 10; map[1] = 9; map[2] = 12; map[3] = 11; map[4] = 13; map[5] = 14;
@@ -704,7 +721,7 @@ void testContractPermutationsForFig3()
 
 
   std::vector<Eigen::MatrixXi> signedMatrices;
-  signedPermutationMatrices(Gc, stereoIndexVectors, signedMatrices, numTetrahedral, 0, n);
+  signedPermutationMatrices(Gc, stereoIndexVectors, signedMatrices, tetrahedralAtoms, 0, n);
 
   /*
   OB_REQUIRE( signedMatrices.at(0)(0,0) == 1 );
