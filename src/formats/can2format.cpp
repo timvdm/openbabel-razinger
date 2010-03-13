@@ -177,13 +177,8 @@ std::string canonicalSmiles(OBMol &mol_orig, std::vector<std::string> &stereoiso
 
   std::vector<unsigned int> symmetry_classes, canon_order;
 
-
-  // FIXME : why is this needed??
   std::string smiles = conv.WriteString(&mol_orig); 
   conv.ReadString(&mol, smiles);
-
-  //cout << "mol.NumAtoms = " << mol.NumAtoms() << endl;
-  //cout << "mol_orig.NumAtoms = " << mol_orig.NumAtoms() << endl;
   
   OBStereoFacade stereoFacade(&mol);
   OBStereoisomer isomers(&mol);
@@ -468,6 +463,36 @@ bool Can2Format::WriteMolecule(OBBase* pOb, OBConversion* pConv)
           mol.SetData(ts);
         }
       }
+      if (unit.type == OBStereo::CisTrans) {
+        if (stereoFacade.HasCisTransStereo(unit.id)) {
+          OBCisTransStereo *ct = stereoFacade.GetCisTransStereo(unit.id);
+          OBCisTransStereo::Config config = ct->GetConfig();
+          config.specified = true;
+          ct->SetConfig(config);
+        } else {
+          OBBond *bond = mol.GetBondById(unit.id);
+          OBAtom *begin = bond->GetBeginAtom();
+          OBAtom *end = bond->GetEndAtom();
+          std::vector<unsigned long> refs;
+          FOR_NBORS_OF_ATOM (nbr, begin)
+            if (nbr->GetId() != end->GetId())
+              refs.push_back(nbr->GetId());
+          FOR_NBORS_OF_ATOM (nbr, end)
+            if (nbr->GetId() != begin->GetId())
+              refs.push_back(nbr->GetId());
+          if (refs.size() < 4)
+            refs.push_back(OBStereo::ImplicitRef);
+
+          OBCisTransStereo *ct = new OBCisTransStereo(&mol);
+          OBCisTransStereo::Config config;
+          config.begin = begin->GetId();
+          config.end = end->GetId();
+          config.refs = refs;
+          ct->SetConfig(config);
+          mol.SetData(ct);
+        }
+      }
+ 
     }
 
     std::string cansmiles = canonicalSmiles(mol, stereoisomers);

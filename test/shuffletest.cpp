@@ -39,7 +39,7 @@ bool doShuffleTest(const std::string &smiles)
   // read a smiles string
   OB_REQUIRE( canConv.ReadString(&mol, smiles) );
 
-  int N = 50;
+  int N = 20;
   testCount++;
 
   std::vector<OBAtom*> atoms;
