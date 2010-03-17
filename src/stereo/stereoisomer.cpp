@@ -94,7 +94,7 @@ namespace OpenBabel {
     //
     // Find all automorphisms for the structure
     //
-    PermutationGroup G = findAutomorphisms(mol, symmetry_classes);
+    OBPermutationGroup G = FindAutomorphisms(mol, symmetry_classes);
     m_automorphisms = G;
 #ifdef DEBUG_STEREOISOMER
     std::cout << "Automorphisms:" << std::endl;
@@ -142,9 +142,9 @@ namespace OpenBabel {
     // Contract the permutations to only account for stereocenters
     // (i.e. remove non-stereogenic atoms)
     //
-    PermutationGroup Gc; // contracted automorphism permutations
-    contractPermutations(G, Gc, stereoAtoms);
-    if (!Gc.size())
+    OBPermutationGroup Gc; // contracted automorphism permutations
+    contractOBPermutations(G, Gc, stereoAtoms);
+    if (!Gc.Size())
       return;
 
     //

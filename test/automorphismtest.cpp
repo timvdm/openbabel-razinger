@@ -19,9 +19,9 @@ bool doAutomorphismTest(OBMol &mol, int numAutomorphisms)
   std::vector<unsigned int> symmetry_classes;
   graphSym.GetSymmetry(symmetry_classes);
 
-  PermutationGroup G = findAutomorphisms(&mol, symmetry_classes);
+  OBPermutationGroup G = FindAutomorphisms(&mol, symmetry_classes);
 
-  return (G.size() == numAutomorphisms);
+  return (G.Size() == numAutomorphisms);
 }
 
 /**

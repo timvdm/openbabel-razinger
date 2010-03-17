@@ -24,12 +24,12 @@ bool doStereoisomerTest(OBMol &mol, int numEnantiomerPairs, int numDiastereomers
 {
   OBStereoisomer isomers(&mol);
   
-  OB_COMPARE(isomers.numEnantiomerPairs(), numEnantiomerPairs);
-  OB_COMPARE(isomers.numDiastereomers(), numDiastereomers);
+  OB_COMPARE(isomers.NumEnantiomerPairs(), numEnantiomerPairs);
+  OB_COMPARE(isomers.NumDiastereomers(), numDiastereomers);
 
   testCount++;
 
-  return (isomers.numEnantiomerPairs() == numEnantiomerPairs) && (isomers.numDiastereomers() == numDiastereomers);
+  return (isomers.NumEnantiomerPairs() == numEnantiomerPairs) && (isomers.NumDiastereomers() == numDiastereomers);
 }
 
 
@@ -459,7 +459,7 @@ void testParityMatrix()
   OB_REQUIRE( parityMatrix(15,3) == -1 );
 }
 
-void testContractPermutations()
+void testContractOBPermutations()
 {
   // stereoAtoms = 1 2 5
   std::vector<unsigned int> stereoAtoms(3, 0);
@@ -469,64 +469,64 @@ void testContractPermutations()
   // create G:  1 2 3 4 5 6
   //            2 1 3 4 5 6
   //            2 3 1 4 5 6
-  PermutationGroup G;
+  OBPermutationGroup G;
   std::vector<unsigned int> map(6, 0);
   map[0] = 1; map[1] = 2; map[2] = 3; map[3] = 4; map[4] = 5; map[5] = 6;
-  G.add(Permutation(map));
+  G.Add(OBPermutation(map));
   map[0] = 2; map[1] = 1; map[2] = 3; map[3] = 4; map[4] = 5; map[5] = 6;
-  G.add(Permutation(map));
+  G.Add(OBPermutation(map));
   map[0] = 2; map[1] = 3; map[2] = 1; map[3] = 4; map[4] = 5; map[5] = 6;
-  G.add(Permutation(map));
+  G.Add(OBPermutation(map));
 
-  PermutationGroup Gc; // contracted automorphism permutation
-  contractPermutations(G, Gc, stereoAtoms);
+  OBPermutationGroup Gc; // contracted automorphism permutation
+  contractOBPermutations(G, Gc, stereoAtoms);
  
-  OB_REQUIRE( Gc.size() == 3 );
+  OB_REQUIRE( Gc.Size() == 3 );
   // 1 2 3 4 5 6 -> 1 2 5
-  OB_REQUIRE( Gc.at(0).map.size() == 3 );
-  OB_REQUIRE( Gc.at(0).map[0] == 1 );
-  OB_REQUIRE( Gc.at(0).map[1] == 2 );
-  OB_REQUIRE( Gc.at(0).map[2] == 5 );
+  OB_REQUIRE( Gc.At(0).map.size() == 3 );
+  OB_REQUIRE( Gc.At(0).map[0] == 1 );
+  OB_REQUIRE( Gc.At(0).map[1] == 2 );
+  OB_REQUIRE( Gc.At(0).map[2] == 5 );
   // 2 1 3 4 5 6 -> 2 1 5
-  OB_REQUIRE( Gc.at(1).map.size() == 3 );
-  OB_REQUIRE( Gc.at(1).map[0] == 2 );
-  OB_REQUIRE( Gc.at(1).map[1] == 1 );
-  OB_REQUIRE( Gc.at(1).map[2] == 5 );
+  OB_REQUIRE( Gc.At(1).map.size() == 3 );
+  OB_REQUIRE( Gc.At(1).map[0] == 2 );
+  OB_REQUIRE( Gc.At(1).map[1] == 1 );
+  OB_REQUIRE( Gc.At(1).map[2] == 5 );
   // 2 3 1 4 5 6 -> 2 1 5
-  OB_REQUIRE( Gc.at(2).map.size() == 3 );
-  OB_REQUIRE( Gc.at(2).map[0] == 2 );
-  OB_REQUIRE( Gc.at(2).map[1] == 1 );
-  OB_REQUIRE( Gc.at(2).map[2] == 5 );
+  OB_REQUIRE( Gc.At(2).map.size() == 3 );
+  OB_REQUIRE( Gc.At(2).map[0] == 2 );
+  OB_REQUIRE( Gc.At(2).map[1] == 1 );
+  OB_REQUIRE( Gc.At(2).map[2] == 5 );
 }
 
 
-void testSignedPermutationMatrices()
+void testSignedOBPermutationMatrices()
 {
   // create Gc
-  PermutationGroup Gc;
+  OBPermutationGroup Gc;
   std::vector<unsigned int> map(4);
   // 3 5 8 9
   map[0] = 3; map[1] = 5; map[2] = 8; map[3] = 9;
-  Gc.add(Permutation(map));
+  Gc.Add(OBPermutation(map));
   std::vector<unsigned int> tetrahedralAtoms = map;
   // 5 3 8 9
   map[0] = 5; map[1] = 3; map[2] = 8; map[3] = 9;
-  Gc.add(Permutation(map));
+  Gc.Add(OBPermutation(map));
   // 3 5 9 8
   map[0] = 3; map[1] = 5; map[2] = 9; map[3] = 8;
-  Gc.add(Permutation(map));
+  Gc.Add(OBPermutation(map));
   // 3 8 9 5
   map[0] = 3; map[1] = 8; map[2] = 9; map[3] = 5;
-  Gc.add(Permutation(map));
+  Gc.Add(OBPermutation(map));
   // 5 8 9 3
   map[0] = 5; map[1] = 8; map[2] = 9; map[3] = 3;
-  Gc.add(Permutation(map));
+  Gc.Add(OBPermutation(map));
   // 5 3 9 8
   map[0] = 5; map[1] = 3; map[2] = 9; map[3] = 8;
-  Gc.add(Permutation(map));
+  Gc.Add(OBPermutation(map));
   // 9 5 8 3
   map[0] = 9; map[1] = 5; map[2] = 8; map[3] = 3;
-  Gc.add(Permutation(map));
+  Gc.Add(OBPermutation(map));
 
   // create stereoIndexVectors
   std::vector<Eigen::VectorXi> stereoIndexVectors;
@@ -584,7 +584,7 @@ OBMol* readFig3()
   return mol;
 }
 
-void testContractPermutationsForFig3()
+void testContractOBPermutationsForFig3()
 {
   OBMol *mol = readFig3();
 
@@ -594,8 +594,8 @@ void testContractPermutationsForFig3()
   for (unsigned int i = 0; i < symmetry_classes.size(); ++i)
     cout << i+1 << ": " << symmetry_classes[i] << endl;
 
-  PermutationGroup G = findAutomorphisms(mol, symmetry_classes);
-  cout << "G.size = " << G.size() << endl;
+  OBPermutationGroup G = FindAutomorphisms(mol, symmetry_classes);
+  cout << "G.size = " << G.Size() << endl;
   vector<StereogenicUnit> stereoUnits = FindStereogenicUnits(mol, symmetry_classes); // FIXME need to cache this
 
   OB_REQUIRE( stereoUnits.size() == 6 );
@@ -613,31 +613,31 @@ void testContractPermutationsForFig3()
   unsigned int n = numTetrahedral;
   OB_REQUIRE( stereoAtoms.size() == 6 );
       
-  PermutationGroup Gc; // contracted automorphism permutations
-  contractPermutations(G, Gc, stereoAtoms);
+  OBPermutationGroup Gc; // contracted automorphism permutations
+  contractOBPermutations(G, Gc, stereoAtoms);
 
-  OB_REQUIRE( Gc.size() == 8 );
+  OB_REQUIRE( Gc.Size() == 8 );
 
   // create Gc_ref
-  PermutationGroup Gc_ref;
+  OBPermutationGroup Gc_ref;
   std::vector<unsigned int> map(6);
   map[0] = 9; map[1] = 10; map[2] = 11; map[3] = 12; map[4] = 13; map[5] = 14;
-  Gc_ref.add(Permutation(map)); // 1
+  Gc_ref.Add(OBPermutation(map)); // 1
   std::vector<unsigned int> tetrahedralAtoms = map;
   map[0] = 10; map[1] = 9; map[2] = 11; map[3] = 12; map[4] = 13; map[5] = 14;
-  Gc_ref.add(Permutation(map)); // 2
+  Gc_ref.Add(OBPermutation(map)); // 2
   map[0] = 10; map[1] = 9; map[2] = 12; map[3] = 11; map[4] = 13; map[5] = 14;
-  Gc_ref.add(Permutation(map)); // 3
+  Gc_ref.Add(OBPermutation(map)); // 3
   map[0] = 9; map[1] = 10; map[2] = 12; map[3] = 11; map[4] = 13; map[5] = 14;
-  Gc_ref.add(Permutation(map)); // 4
+  Gc_ref.Add(OBPermutation(map)); // 4
   map[0] = 11; map[1] = 12; map[2] = 10; map[3] = 9; map[4] = 14; map[5] = 13;
-  Gc_ref.add(Permutation(map)); // 5
+  Gc_ref.Add(OBPermutation(map)); // 5
   map[0] = 12; map[1] = 11; map[2] = 9; map[3] = 10; map[4] = 14; map[5] = 13;
-  Gc_ref.add(Permutation(map)); // 6
+  Gc_ref.Add(OBPermutation(map)); // 6
   map[0] = 12; map[1] = 11; map[2] = 10; map[3] = 9; map[4] = 14; map[5] = 13;
-  Gc_ref.add(Permutation(map)); // 7
+  Gc_ref.Add(OBPermutation(map)); // 7
   map[0] = 11; map[1] = 12; map[2] = 9; map[3] = 10; map[4] = 14; map[5] = 13;
-  Gc_ref.add(Permutation(map)); // 8
+  Gc_ref.Add(OBPermutation(map)); // 8
 
   //9 10 11 12 13 14    1
   //9 10 12 11 13 14    4
@@ -649,10 +649,10 @@ void testContractPermutationsForFig3()
   //12 11 10 9 14 13    7
 
 
-  for (unsigned int i = 0; i < Gc_ref.size(); ++i) {
+  for (unsigned int i = 0; i < Gc_ref.Size(); ++i) {
       cout << i << endl;
-    OB_REQUIRE( Gc.contains(Gc_ref.at(i)) );
-    if (!Gc.contains(Gc_ref.at(i))) {
+    OB_REQUIRE( Gc.Contains(Gc_ref.At(i)) );
+    if (!Gc.Contains(Gc_ref.At(i))) {
     }
   }
 
@@ -794,12 +794,12 @@ int main(int argc, char **argv)
 {
   // some static tests first
   testParityMatrix();
-  testContractPermutations();
-  //testSignedPermutationMatrices();
+  testContractOBPermutations();
+  //testSignedOBPermutationMatrices();
   testMultiplyMatrixByRow();
 
   // fig3
-  testContractPermutationsForFig3();
+  testContractOBPermutationsForFig3();
 
   std::string file;
   if (argc > 2)

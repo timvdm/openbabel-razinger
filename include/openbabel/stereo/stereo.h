@@ -246,6 +246,9 @@ namespace OpenBabel {
  
   };
 
+  /**
+   * @brief Struct representing a single stereogenic unit.
+   */
   struct StereogenicUnit
   {
     StereogenicUnit() : type(static_cast<OBStereo::Type>(0)), id(OBStereo::NoRef), para(false)

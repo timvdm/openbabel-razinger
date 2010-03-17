@@ -275,6 +275,8 @@ namespace OpenBabel
      (the most important, widely-used public classes)
   - <a href="annotated.shtml" class="el">All Classes</a> \n
      (all classes with brief descriptions)
+  - \ref changes23 "What's New in Version 2.3" \n
+     (changes since 2.2 releases)
   - \ref changes22 "What's New in Version 2.2" \n
      (changes since 2.1 releases)
   - \ref changes21 "What's New in Version 2.1" \n
@@ -416,6 +418,17 @@ namespace OpenBabel
   - matrix3x3 - Square 3x3 matrices for 3D transformations and rotations
   - vector3 - 3D vector class for translations and planes
 
+  \page changes23 What's New in Version 2.3
+
+  Throughout the API documentation, new classes and methods are
+  indicated with a disclaimer "Since: version 2.3."
+
+  One of the major advances is the introduction of new classes for \ref stereo "Stereochemistry".
+
+  Several new classes have been introduced, notably
+  - OBGraphSym - Symmetry classes and Canonical labels
+  - OBStereoisomer - Enumerate stereoisomers
+ 
   \page changes22 What's New in Version 2.2
 
   Throughout the API documentation, new classes and methods are

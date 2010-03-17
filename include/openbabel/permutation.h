@@ -13,32 +13,42 @@ namespace OpenBabel {
 
   class OBMol;
 
-  struct OBAPI Permutation
+  ///@addtogroup permutation Permutations 
+  ///@{
+
+  /**
+   * @brief Class representing single permutation
+   *
+   * The OBPermutation class represents a single permutation of a series of 
+   * numbers. The class is meant to be used with the findAutomorphisms
+   * function (other uses might exist though).
+   */
+  struct OBAPI OBPermutation
   {
     /**
      * Default constructor.
      */
-    Permutation()
+    OBPermutation()
     {}
 
     /**
      * Constructor taking a @p map as argument.
      */
-    Permutation(const std::vector<unsigned int> &_map) : map(_map)
+    OBPermutation(const std::vector<unsigned int> &_map) : map(_map)
     {}
 
     /**
      * Constructor taking a @p matrix as argument.
      */
-    Permutation(const Eigen::MatrixXi &matrix)
+    OBPermutation(const Eigen::MatrixXi &matrix)
     {
-      setMatrix(matrix);
+      SetMatrix(matrix);
     }
 
     /**
      * Copy constructor.
      */
-    Permutation(const Permutation &other)
+    OBPermutation(const OBPermutation &other)
     {
       this->map = other.map;
     }
@@ -46,7 +56,7 @@ namespace OpenBabel {
     /**
      * Print the permutation to std::cout in shortened notation.
      */
-    void print() const
+    void Print() const
     {
       std::vector<unsigned int>::const_iterator i;
       for (i = map.begin(); i != map.end(); ++i)
@@ -54,9 +64,9 @@ namespace OpenBabel {
       std::cout << std::endl;    
     }
 
-    Permutation apply(const Permutation &input) const
+    OBPermutation Apply(const OBPermutation &input) const
     {
-      Permutation p;
+      OBPermutation p;
       if (input.map.size() != map.size())
         return p;
       p.map.resize(map.size());
@@ -71,9 +81,9 @@ namespace OpenBabel {
     }
 
     /**
-     * Compute the permutation matrix for this Permutation.
+     * Compute the permutation matrix for this OBPermutation.
      */
-    Eigen::MatrixXi matrix() const
+    Eigen::MatrixXi GetMatrix() const
     {
       int n = map.size();
       Eigen::MatrixXi P = Eigen::MatrixXi::Zero(n, n);
@@ -94,16 +104,8 @@ namespace OpenBabel {
       }
 
       for (int i = 0; i < n; ++i) {
-        //P(i, renum[map.at(i)]) = 1;
         P(renum[map.at(i)], i) = 1;
       }
-      /*
-      for (int i = 0; i < n; ++i) {
-        //P(map.at(i)-1, i) = 1;
-        P(i, map.at(i)-1) = 1;
-      }
-       */
-
 
       return P;
     }
@@ -112,7 +114,7 @@ namespace OpenBabel {
      * Set the permutation matrix for this permutation. The matrix is
      * converted to a shortened notation permutation.
      */
-    void setMatrix(const Eigen::MatrixXi &m)
+    void SetMatrix(const Eigen::MatrixXi &m)
     {
       if (m.rows() != m.cols())
         return;
@@ -154,16 +156,16 @@ namespace OpenBabel {
      * Multiply two permutation matrices and return the resulting permutation.
      * This is the same as applying the two permutations consecutively.
      */
-    Permutation operator*(const Permutation &rhs) const
+    OBPermutation operator*(const OBPermutation &rhs) const
     {
-      return apply(rhs);
+      return Apply(rhs);
     }
 
     /**
      * Equality operator. Two permutations are equal if their shortened notations 
      * are the same (compared element-by-element).
      */
-    bool operator==(const Permutation &rhs) const
+    bool operator==(const OBPermutation &rhs) const
     {
       if (map.size() != rhs.map.size())
         return false;
@@ -180,24 +182,32 @@ namespace OpenBabel {
     std::vector<unsigned int> map; //!< The actual mapping in shortened notation
   };
 
-  struct OBAPI PermutationGroup
+  /**
+   * @brief Class representing a group of permutations
+   *
+   * The OBPermutationGroup class represents a group of OBPermutation objects.
+   * The biggest benefit of this separate class over a std::vector is the 
+   * contains function. This class is the return type of the findAutomorphisms
+   * function.
+   */
+  struct OBAPI OBPermutationGroup
   {
     /**
      * Default constructor.
      */
-    PermutationGroup()
+    OBPermutationGroup()
     {}
 
     /**
      * Constructor taking vector of permutations as argument.
      */
-    PermutationGroup(const std::vector<Permutation> &_permutations) : permutations(_permutations)
+    OBPermutationGroup(const std::vector<OBPermutation> &_permutations) : permutations(_permutations)
     {}
 
     /**
      * @return The number of permutations in this group.
      */
-    unsigned int size() const
+    unsigned int Size() const
     {
       return permutations.size();
     }
@@ -205,16 +215,15 @@ namespace OpenBabel {
     /**
      * Add permutation @p p to this permutation group.
      */
-    void add(const Permutation &p)
+    void Add(const OBPermutation &p)
     {
       permutations.push_back(p);
-      //invIndexes.push_back(p.NumInversions());
     }
 
     /**
      * @return A constant reference to the @p index-th permutation.
      */
-    const Permutation& at(unsigned int index) const
+    const OBPermutation& At(unsigned int index) const
     {
       return permutations.at(index);
     }
@@ -222,22 +231,33 @@ namespace OpenBabel {
     /**
      * @return True if this permutation group contains permutation @p p.
      */
-    bool contains(const Permutation &p) const
+    bool Contains(const OBPermutation &p) const
     {
-      //if (std::find(invIndexes.begin(), invIndexes.end(), p.NumInversions()) != invIndexes.end())
-      //  return true;
-      std::vector<Permutation>::const_iterator i;
+      std::vector<OBPermutation>::const_iterator i;
       for (i = permutations.begin(); i != permutations.end(); ++i)
         if (*i == p)
           return true;
       return false; 
     }
 
-    std::vector<Permutation> permutations; //!< The actual permutations in the group
-    //std::vector<unsigned long> invIndexes; //!< The inversion indexes
+    std::vector<OBPermutation> permutations; //!< The actual permutations in the group
   };
-  
-  OBAPI PermutationGroup findAutomorphisms(OpenBabel::OBMol *obmol, const std::vector<unsigned int> &symClasses);
+
+
+  /**
+   * Find all automorphisms of a molecule. The specified symmetry classes partition 
+   * the atoms in groups of topological equivalent atoms. The permutations in the 
+   * automorphisms group are all possible permutations which preserve connectivity.
+   * Mathematically this can be expressed using the adjacency matrix (\f$A\f$) and
+   * permutation matrix (\f$P\f$) in the equation:
+     \f[
+     P^T A P = A     
+     \f]
+   */
+  OBAPI OBPermutationGroup FindAutomorphisms(OpenBabel::OBMol *obmol, const std::vector<unsigned int> &symClasses);
+
+
+  ///@}
 
 } // namespace
 

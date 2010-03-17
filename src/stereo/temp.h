@@ -1,28 +1,28 @@
 namespace OpenBabel {
 
-  void contractPermutations(const PermutationGroup &G, PermutationGroup &Gc, const std::vector<unsigned int> &stereoAtoms)
+  void contractOBPermutations(const OBPermutationGroup &G, OBPermutationGroup &Gc, const std::vector<unsigned int> &stereoAtoms)
   {
     // contract the permutations (i.e. remove non-stereogenic atoms)
-    //std::cout << "Contracted Permutations:" << std::endl;
+    //std::cout << "Contracted OBPermutations:" << std::endl;
     for (unsigned int g = 0; g < G.permutations.size(); ++g) {
-      Permutation p;
-      for (unsigned int j = 0; j < G.at(g).map.size(); ++j) {
-        if (std::find(stereoAtoms.begin(), stereoAtoms.end(), G.at(g).map.at(j)) != stereoAtoms.end())
-          p.map.push_back(G.at(g).map.at(j));
+      OBPermutation p;
+      for (unsigned int j = 0; j < G.At(g).map.size(); ++j) {
+        if (std::find(stereoAtoms.begin(), stereoAtoms.end(), G.At(g).map.at(j)) != stereoAtoms.end())
+          p.map.push_back(G.At(g).map.at(j));
       }
       //p.print();
       if (p.map.size())
-        Gc.add(p);
+        Gc.Add(p);
     } 
   }
 
-  void signedPermutationMatrices(const PermutationGroup &Gc, const std::vector<Eigen::VectorXi> &stereoIndexVectors, 
+  void signedPermutationMatrices(const OBPermutationGroup &Gc, const std::vector<Eigen::VectorXi> &stereoIndexVectors, 
       std::vector<Eigen::MatrixXi> &signedMatrices, const std::vector<unsigned int> &tetrahedralAtoms, int numCisTrans, int n)
   {
     int numTetrahedral = tetrahedralAtoms.size();
     //cout << "signedPermutationMatrices" << endl;
-    for (unsigned int g = 0; g < Gc.permutations.size(); ++g) {
-      const Permutation &p = Gc.permutations.at(g);
+    for (unsigned int g = 0; g < Gc.Size(); ++g) {
+      const OBPermutation &p = Gc.At(g);
 
       Eigen::MatrixXi Ps = Eigen::MatrixXi::Zero(n, n);
  
@@ -34,15 +34,15 @@ namespace OpenBabel {
           cistransMap.push_back(p.map.at(i));
      
       if (numTetrahedral) {
-        Permutation p2(tetrahedralMap);
-        Eigen::MatrixXi P = p2.matrix();
+        OBPermutation p2(tetrahedralMap);
+        Eigen::MatrixXi P = p2.GetMatrix();
         for (unsigned int j = 0; j < numTetrahedral; ++j)
           for (unsigned int k = 0; k < numTetrahedral; ++k)
             Ps(k, j) = P(k, j) * stereoIndexVectors.at(g)[k];
       }
       if (numCisTrans) {
-        Permutation p2(cistransMap);
-        Eigen::MatrixXi P = p2.matrix();
+        OBPermutation p2(cistransMap);
+        Eigen::MatrixXi P = p2.GetMatrix();
         for (unsigned int j = numTetrahedral; j < numTetrahedral + numCisTrans; ++j)
           for (unsigned int k = numTetrahedral; k < numTetrahedral + numCisTrans; ++k)
             Ps(k, j) = P(k - numTetrahedral, j - numTetrahedral) * stereoIndexVectors.at(g)[k];
@@ -62,7 +62,7 @@ namespace OpenBabel {
     return Pirj;
   }
 
-  int getStereoIndex(OBAtom *atom, const Permutation &p, const std::vector<unsigned int> &symmetry_classes)
+  int getStereoIndex(OBAtom *atom, const OBPermutation &p, const std::vector<unsigned int> &symmetry_classes)
   {
     // construct map: symmetry class -> vector<id>
     std::map<unsigned int, std::vector<unsigned int> > symClass2index;
@@ -103,8 +103,8 @@ namespace OpenBabel {
       return 1; // even # of permutations
   }
 
-  void createStereoIndexVectors(std::vector<Eigen::VectorXi> &stereoIndexVectors, const PermutationGroup &Gc,
-      const PermutationGroup &G, const std::vector<StereogenicUnit> &stereoUnits, OBMol *mol, 
+  void createStereoIndexVectors(std::vector<Eigen::VectorXi> &stereoIndexVectors, const OBPermutationGroup &Gc,
+      const OBPermutationGroup &G, const std::vector<StereogenicUnit> &stereoUnits, OBMol *mol, 
       const std::vector<unsigned int> &symmetry_classes, int n)
   {      
     //cout << "createStereoIndexVectors" << endl;
@@ -117,8 +117,8 @@ namespace OpenBabel {
     //   - identical liganss interchanged: -1 (or odd number of permutations)
     //
     for (unsigned int g = 0; g < Gc.permutations.size(); ++g) {
-      const Permutation &p = Gc.permutations.at(g);
-      const Permutation &pFull = G.permutations.at(g);
+      const OBPermutation &p = Gc.permutations.at(g);
+      const OBPermutation &pFull = G.permutations.at(g);
       //std::cout << "permutation: "; p.print();
       //std::cout << "matrix: " << endl;
       //std::cout << p.matrix() << endl;

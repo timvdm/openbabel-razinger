@@ -7,13 +7,13 @@ using namespace OpenBabel;
 void testConstructors()
 {
   // default constructor
-  Permutation p1;
+  OBPermutation p1;
 
   std::vector<unsigned int> map(3);
   map[0] = 1;
   map[1] = 2;
   map[2] = 3;
-  Permutation p2(map);
+  OBPermutation p2(map);
   OB_REQUIRE( p2.map.size() == 3 );
   OB_REQUIRE( p2.map[0] == 1 );
   OB_REQUIRE( p2.map[1] == 2 );
@@ -33,8 +33,8 @@ void testApply()
   map[2] = 3;
   map[3] = 2;
 
-  Permutation p(map);
-  Permutation result = p.apply(orig);
+  OBPermutation p(map);
+  OBPermutation result = p.Apply(orig);
 
   OB_REQUIRE( result.map.size() == 4 );
   OB_REQUIRE( result.map[0] == 4 );
@@ -53,9 +53,9 @@ void testMatrix()
   map[4] = 6;
   map[5] = 5;
 
-  Permutation p(map);
+  OBPermutation p(map);
 
-  Eigen::MatrixXi m = p.matrix();
+  Eigen::MatrixXi m = p.GetMatrix();
 
   // 0 1 0 0 0 0
   // 1 0 0 0 0 0
@@ -105,7 +105,7 @@ void testMatrix()
   OB_REQUIRE( m(5,4) == 1 );
   OB_REQUIRE( m(5,5) == 0 );
 
-  Permutation p2(m);
+  OBPermutation p2(m);
   OB_REQUIRE( p2.map.size() == 6 );
   OB_REQUIRE( p2.map[0] == 2 );
   OB_REQUIRE( p2.map[1] == 1 );

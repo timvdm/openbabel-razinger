@@ -98,12 +98,12 @@ int main(int argc,char **argv)
     std::vector<unsigned int> symmetry_classes;
     sym.GetSymmetry(symmetry_classes, false);
   
-    PermutationGroup G = findAutomorphisms(&mol, symmetry_classes);
+    OBPermutationGroup G = FindAutomorphisms(&mol, symmetry_classes);
 
 
     cout << "automorphisms:" << endl;
-    for (unsigned int i = 0; i < G.size(); ++i) {
-      G.at(i).print();
+    for (unsigned int i = 0; i < G.Size(); ++i) {
+      G.At(i).Print();
     }
       
   } // end for loop

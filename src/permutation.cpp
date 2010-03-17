@@ -24,31 +24,31 @@ namespace OpenBabel {
     //cout << endl;
 
     // add the generator
-    PermutationGroup *generators = static_cast<PermutationGroup*>(param);
-    generators->add(Permutation(elements));
+    OBPermutationGroup *generators = static_cast<OBPermutationGroup*>(param);
+    generators->Add(OBPermutation(elements));
   }
 
   /**
    * Add the permutations' inverses to group @p G. These inverses automatically
    * belong to the automorphism group without the need of further testing.
    */
-  void addInverses(PermutationGroup &G)
+  void addInverses(OBPermutationGroup &G)
   {
     //cout << "addInverses..." << endl;
-    unsigned int size = G.permutations.size();
+    unsigned int size = G.Size();
     for (unsigned int i = 0; i < size; ++i) {
-      int n = G.at(i).map.size();
+      int n = G.At(i).map.size();
       Eigen::MatrixXi P = Eigen::MatrixXi::Zero(n, n);
       for (int j = 0; j < n; ++j) {
-        P(j, G.at(i).map.at(j)-1) = 1;
+        P(j, G.At(i).map.at(j)-1) = 1;
       }
  
-      Permutation inv_p(P.transpose());
+      OBPermutation inv_p(P.transpose());
       //cout << "matrix:" << endl; cout << G.permutations.at(i).matrix() << endl;
       //inv_p.print();
-      if (!G.contains(inv_p)) {
+      if (!G.Contains(inv_p)) {
         //cout << "--------------> found inverse" << endl;
-        G.add(inv_p); 
+        G.Add(inv_p); 
       }
     }
   }
@@ -57,25 +57,25 @@ namespace OpenBabel {
    * Add the all permutation products to group @p G. These inverses automatically
    * belong to the automorphism group without the need of further testing.
    */
-  void addProducts(PermutationGroup &G)
+  void addProducts(OBPermutationGroup &G)
   {
     //cout << "addProducts..." << endl;
-    for (unsigned int i = 0; i < G.permutations.size(); ++i) {
-      for (unsigned int j = 0; j < G.permutations.size(); ++j) {
+    for (unsigned int i = 0; i < G.Size(); ++i) {
+      for (unsigned int j = 0; j < G.Size(); ++j) {
         if (i >= j)
           continue;
 
-        Permutation p = G.permutations.at(i) * G.permutations.at(j);
+        OBPermutation p = G.At(i) * G.At(j);
         //p.print();
-        if (!G.contains(p)) {
+        if (!G.Contains(p)) {
           //cout << "-------------> found product" << endl;
-          G.add(p);
+          G.Add(p);
         }
       }
     }
   }
 
-  PermutationGroup findAutomorphisms(OpenBabel::OBMol *obmol, const std::vector<unsigned int> &symClasses)
+  OBPermutationGroup FindAutomorphisms(OpenBabel::OBMol *obmol, const std::vector<unsigned int> &symClasses)
   {
     // construct the bliss graph
     bliss::Graph g;
@@ -88,7 +88,7 @@ namespace OpenBabel {
     }
 
     // use bliss to get the automorphism group generators
-    PermutationGroup generators;
+    OBPermutationGroup generators;
     bliss::Stats stats;
     g.find_automorphisms(stats, &callback, &generators);
 
@@ -96,27 +96,27 @@ namespace OpenBabel {
     unsigned long nAut = stats.group_size_approx;
 
     // construct the automorphism group
-    PermutationGroup G;
+    OBPermutationGroup G;
 
     // add identity permutation
     std::vector<unsigned int> eElements;
     for (unsigned int i = 0; i < obmol->NumAtoms(); ++i)
       eElements.push_back(i+1);
-    Permutation e(eElements);
-    if (!G.contains(e))
-      G.add(e);
+    OBPermutation e(eElements);
+    if (!G.Contains(e))
+      G.Add(e);
 
     // add the generators
-    for (unsigned int i = 0; i < generators.size(); ++i) {
-      if (!G.contains(generators.at(i)))
-        G.add(generators.at(i));
+    for (unsigned int i = 0; i < generators.Size(); ++i) {
+      if (!G.Contains(generators.At(i)))
+        G.Add(generators.At(i));
     }
 
     // loop and add inverses and products until no more automorphisms are found
     unsigned int counter = 0;
     unsigned int lastSize = 0;
-    while (G.permutations.size() != lastSize) {
-      lastSize = G.permutations.size();
+    while (G.Size() != lastSize) {
+      lastSize = G.Size();
 
       addInverses(G);
       addProducts(G);

@@ -226,7 +226,7 @@ std::string canonicalSmiles(OBMol &mol_orig, std::vector<std::string> &stereoiso
   //
   // Handle enantiomers
   //
-  const std::vector<OBStereoisomer::Enantiomer> &enantiomers = isomers.enantiomers();
+  const std::vector<OBStereoisomer::Enantiomer> &enantiomers = isomers.GetEnantiomers();
   for (unsigned int i = 0; i < enantiomers.size(); ++i) {
     std::vector<std::string> candidates;
     //cout << "  enantiomer " << i+1 << endl;
@@ -310,7 +310,7 @@ std::string canonicalSmiles(OBMol &mol_orig, std::vector<std::string> &stereoiso
   //
   // Handle diastereomers
   //
-  const std::vector<OBStereoisomer::Diastereomer> &diastereomers = isomers.diastereomers();
+  const std::vector<OBStereoisomer::Diastereomer> &diastereomers = isomers.GetDiastereomers();
   for (unsigned int i = 0; i < diastereomers.size(); ++i) {
     std::vector<std::string> candidates;
     //cout << "  diastereomer " << i+1 << endl;
@@ -362,7 +362,9 @@ std::string canonicalSmiles(OBMol &mol_orig, std::vector<std::string> &stereoiso
   //cout << "  True canonical SMILES: ";
   //cout << canonicalCandidates.front() << endl;
 
-  return canonicalCandidates.front();
+  if (!canonicalCandidates.empty())
+    return canonicalCandidates.front();
+  return removeNewLine(conv.WriteString(&mol)); 
 }
 
 
