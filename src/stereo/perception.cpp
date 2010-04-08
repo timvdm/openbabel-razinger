@@ -1200,6 +1200,25 @@ namespace OpenBabel {
   }
  
 
+  bool containsAtLeast_1true_1para(OBAtom *ligandAtom, OBAtom *atom, const std::vector<StereogenicUnit> &units)
+  {
+    OBMol *mol = atom->GetParent();
+    OBBitVec ligand = getFragment(ligandAtom, atom);
+    for (std::vector<StereogenicUnit>::const_iterator u2 = units.begin(); u2 != units.end(); ++u2) {
+      if ((*u2).type == OBStereo::Tetrahedral) {
+        if (ligand.BitIsOn((*u2).id))
+          return true;
+      } else if((*u2).type == OBStereo::CisTrans) {
+        OBBond *bond2 = mol->GetBondById((*u2).id);
+        OBAtom *begin = bond2->GetBeginAtom();
+        OBAtom *end = bond2->GetEndAtom();
+        if (ligand.BitIsOn(begin->GetId()) || ligand.BitIsOn(end->GetId()))
+          return true;
+      }
+    }
+    return false;
+  }
+
   bool containsAtLeast_1true_2para(OBAtom *ligandAtom, OBAtom *atom, const std::vector<StereogenicUnit> &units)
   {
     OBMol *mol = atom->GetParent();
@@ -1436,20 +1455,8 @@ namespace OpenBabel {
                     break;
                   }
                 }
-
-                OBBitVec ligand = getFragment(ligandAtom, bond->GetBeginAtom());
-                for (std::vector<StereogenicUnit>::iterator u2 = units.begin(); u2 != units.end(); ++u2) {
-                  if ((*u2).type == OBStereo::Tetrahedral) {
-                    if (ligand.BitIsOn((*u2).id))
-                      beginValid = true;
-                  } else if((*u2).type == OBStereo::CisTrans) {
-                    OBBond *bond2 = mol->GetBondById((*u2).id);
-                    OBAtom *begin = bond2->GetBeginAtom();
-                    OBAtom *end = bond2->GetEndAtom();
-                    if (ligand.BitIsOn(begin->GetId()) || ligand.BitIsOn(end->GetId()))
-                      beginValid = true;
-                  }
-                }
+                
+                beginValid = containsAtLeast_1true_1para(ligandAtom, bond->GetBeginAtom(), units);
               }
               break;
           }
@@ -1474,19 +1481,7 @@ namespace OpenBabel {
                   }
                 }
 
-                OBBitVec ligand = getFragment(ligandAtom, bond->GetEndAtom());
-                for (std::vector<StereogenicUnit>::iterator u2 = units.begin(); u2 != units.end(); ++u2) {
-                  if ((*u2).type == OBStereo::Tetrahedral) {
-                    if (ligand.BitIsOn((*u2).id))
-                      endValid = true;
-                  } else if((*u2).type == OBStereo::CisTrans) {
-                    OBBond *bond2 = mol->GetBondById((*u2).id);
-                    OBAtom *begin = bond2->GetBeginAtom();
-                    OBAtom *end = bond2->GetEndAtom();
-                    if (ligand.BitIsOn(begin->GetId()) || ligand.BitIsOn(end->GetId()))
-                      endValid = true;
-                  }
-                }
+                endValid = containsAtLeast_1true_1para(ligandAtom, bond->GetEndAtom(), units);
               }
               break;
           }
