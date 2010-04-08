@@ -25,6 +25,7 @@
 #define OB_STEREO_H
 
 #include <openbabel/base.h> // OBGenericData
+#include <openbabel/permutation.h> // OBGenericData
 #include <vector>
 #include <map>
 #include <set>
@@ -726,6 +727,8 @@ namespace OpenBabel {
   ///@{
   OBAPI std::vector<StereogenicUnit> FindStereogenicUnits(OBMol *mol, 
       const std::vector<unsigned int> &symClasses);
+  OBAPI std::vector<StereogenicUnit> FindStereogenicUnits(OBMol *mol, 
+      const std::vector<unsigned int> &symClasses, const OBPermutationGroup &automorphisms);
   ///@}
 
   /**
