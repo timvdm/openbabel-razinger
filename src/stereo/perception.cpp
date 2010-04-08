@@ -68,6 +68,56 @@ namespace OpenBabel {
     C11 = 7 // the same symmetry class
   };
 
+  bool mayHaveChiralCenter(OBMol *mol)
+  {
+    std::vector<OBAtom*>::iterator ia;
+    for (OBAtom *atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia))
+      if (atom->GetHyb() == 3 && atom->GetHvyValence() >= 3) {
+        return true;
+      }
+    return false;
+  }
+
+  bool mayHaveCisTransBond(OBMol *mol)
+  {
+    std::vector<OBBond*>::iterator ib;
+    for (OBBond *bond = mol->BeginBond(ib); bond; bond = mol->NextBond(ib))
+      if (bond->GetBO() == 2 && !bond->IsInRing()) {
+        return true;
+      }
+    return false;
+  }
+
+  bool isPotentialTetrahedral(OBAtom *atom)
+  {
+    // consider only potential steroecenters
+    if (atom->GetHyb() != 3 || atom->GetHvyValence() < 3)
+      return false;
+    // skip non-chiral N
+    if (atom->IsNitrogen()) {
+      int nbrRingAtomCount = 0;
+      FOR_NBORS_OF_ATOM (nbr, atom) {
+        if (nbr->IsInRing())
+          nbrRingAtomCount++;        
+      }
+      if (nbrRingAtomCount < 3)
+        return false;
+    }
+
+    return true;
+  }
+
+  bool isPotentialCisTrans(OBBond *bond)
+  {
+    if (bond->GetBondOrder() != 2)
+      return false;
+    if (bond->IsInRing())
+      return false;
+    if (!bond->GetBeginAtom()->HasSingleBond() || !bond->GetEndAtom()->HasSingleBond()) 
+      return false;
+    return true;
+  }
+
   int classifyTetrahedralNbrSymClasses(const std::vector<unsigned int> &symClasses, OBAtom *atom)
   {
     std::vector<unsigned int> nbrClasses, nbrClassesCopy, uniqueClasses;
@@ -213,24 +263,7 @@ namespace OpenBabel {
     std::vector<StereogenicUnit> units;
 
     // do quick test to see if there are any possible stereogenic units
-    bool mayHaveChiralCenter = false;
-    OBAtom *atom, *nbr;
-    std::vector<OBAtom*>::iterator ia;
-    for (atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia))
-      if (atom->GetHyb() == 3 && atom->GetHvyValence() >= 3) {
-        mayHaveChiralCenter = true;
-        break;
-      }
-
-    bool mayHaveCisTransBond = false;
-    std::vector<OBBond*>::iterator ib;
-    for (OBBond *bond = mol->BeginBond(ib); bond; bond = mol->NextBond(ib))
-      if (bond->GetBO() == 2 && !bond->IsInRing()) {
-        mayHaveCisTransBond = true;
-        break;
-      }
-
-    if (!mayHaveCisTransBond && !mayHaveChiralCenter)
+    if (!mayHaveChiralCenter(mol) && !mayHaveCisTransBond(mol))
       return units;
 
     // make sure we have symmetry classes for all atoms
@@ -246,45 +279,37 @@ namespace OpenBabel {
      * - have four different symmetry classes for the ligands to the central atom
      */
     bool ischiral;
-    for (atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia)) {
-      // skip non-chiral N
-      if (atom->IsNitrogen()) {
-        int nbrRingAtomCount = 0;
-        FOR_NBORS_OF_ATOM (nbr, atom) {
-          if (nbr->IsInRing())
-            nbrRingAtomCount++;        
-        }
-        if (nbrRingAtomCount < 3)
-          continue;
+    std::vector<OBAtom*>::iterator ia;
+    for (OBAtom *atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia)) {
+      if (!isPotentialTetrahedral(atom))
+        continue;
+        
+      // list containing neighbor symmetry classes
+      std::vector<unsigned int> tlist; 
+      ischiral = true;
+
+      // check neighbors to see if this atom is stereogenic
+      std::vector<OBBond*>::iterator j;
+      for (OBAtom *nbr = atom->BeginNbrAtom(j); nbr; nbr = atom->NextNbrAtom(j)) {
+        // check if we already have a neighbor with this symmetry class
+        std::vector<unsigned int>::iterator k;
+        for (k = tlist.begin(); k != tlist.end(); ++k)
+          if (symClasses[nbr->GetIndex()] == *k) {
+            ischiral = false;
+            // if so, might still be a para-stereocenter
+            paraAtoms.push_back(atom->GetIdx());
+          }
+
+        if (ischiral)
+          // keep track of all neighbors, so we can detect duplicates
+          tlist.push_back(symClasses[nbr->GetIndex()]);
+        else
+          break;
       }
-      if (atom->GetHyb() == 3 && atom->GetHvyValence() >= 3) {
-        // list containing neighbor symmetry classes
-        std::vector<unsigned int> tlist; 
-        ischiral = true;
 
-        // check neighbors to see if this atom is stereogenic
-        std::vector<OBBond*>::iterator j;
-        for (nbr = atom->BeginNbrAtom(j); nbr; nbr = atom->NextNbrAtom(j)) {
-          // check if we already have a neighbor with this symmetry class
-          std::vector<unsigned int>::iterator k;
-          for (k = tlist.begin(); k != tlist.end(); ++k)
-            if (symClasses[nbr->GetIndex()] == *k) {
-              ischiral = false;
-              // if so, might still be a para-stereocenter
-              paraAtoms.push_back(atom->GetIdx());
-            }
-
-          if (ischiral)
-            // keep track of all neighbors, so we can detect duplicates
-            tlist.push_back(symClasses[nbr->GetIndex()]);
-          else
-            break;
-        }
-
-        if (ischiral) {
-          // true-stereocenter found
-          units.push_back(StereogenicUnit(OBStereo::Tetrahedral, atom->GetId()));
-        }
+      if (ischiral) {
+        // true-stereocenter found
+        units.push_back(StereogenicUnit(OBStereo::Tetrahedral, atom->GetId()));
       }
     }
 
@@ -293,6 +318,7 @@ namespace OpenBabel {
      * - each terminal has two different symmetry classes for it's ligands
      */
     bool isCisTrans;
+    std::vector<OBBond*>::iterator ib;
     for (OBBond *bond = mol->BeginBond(ib); bond; bond = mol->NextBond(ib)) {
       if (bond->IsInRing())
         continue;
@@ -1024,26 +1050,6 @@ namespace OpenBabel {
     return units;
   }
 
-  bool mayHaveChiralCenter(OBMol *mol)
-  {
-    std::vector<OBAtom*>::iterator ia;
-    for (OBAtom *atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia))
-      if (atom->GetHyb() == 3 && atom->GetHvyValence() >= 3) {
-        return true;
-      }
-    return false;
-  }
-
-  bool mayHaveCisTransBond(OBMol *mol)
-  {
-    std::vector<OBBond*>::iterator ib;
-    for (OBBond *bond = mol->BeginBond(ib); bond; bond = mol->NextBond(ib))
-      if (bond->GetBO() == 2 && !bond->IsInRing()) {
-        return true;
-      }
-    return false;
-  }
-
 
 
   bool permutationInvertsTetrahedralCenter(const OBPermutation &p, OBAtom *center, 
@@ -1123,9 +1129,7 @@ namespace OpenBabel {
 
         std::vector<OBAtom*>::iterator ia;
         for (OBAtom *atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia)) {
-          if (atom->GetHyb() != 3)
-            continue;
-          if (atom->GetHvyValence() < 3)
+          if (!isPotentialTetrahedral(atom))
             continue;
           if (permutationInvertsTetrahedralCenter(entry.p, atom, symClasses))
             entry.invertedAtoms.push_back(atom);
@@ -1133,7 +1137,7 @@ namespace OpenBabel {
  
         std::vector<OBBond*>::iterator ib;
         for (OBBond *bond = mol->BeginBond(ib); bond; bond = mol->NextBond(ib)) {
-          if (bond->GetBondOrder() != 2)
+          if (!isPotentialCisTrans(bond))
             continue;
           if (permutationInvertsCisTransCenter(entry.p, bond, symClasses))
             entry.invertedBonds.push_back(bond);
@@ -1300,18 +1304,8 @@ namespace OpenBabel {
         if (std::find(doneAtoms.begin(), doneAtoms.end(), atom->GetId()) != doneAtoms.end())
           continue;
         // consider only potential steroecenters
-        if (atom->GetHyb() != 3 || atom->GetHvyValence() < 3)
+        if (!isPotentialTetrahedral(atom))
           continue;
-        // skip non-chiral N
-        if (atom->IsNitrogen()) {
-          int nbrRingAtomCount = 0;
-          FOR_NBORS_OF_ATOM (nbr, atom) {
-            if (nbr->IsInRing())
-              nbrRingAtomCount++;        
-          }
-          if (nbrRingAtomCount < 3)
-            continue;
-        }
 
         // A potential stereocenter is really a stereocenter if there exists no automorphic
         // permutation causing an inversion of the configuration of only the potential
@@ -1396,12 +1390,7 @@ namespace OpenBabel {
       for (OBBond *bond = mol->BeginBond(ib); bond; bond = mol->NextBond(ib)) {
         if (std::find(doneBonds.begin(), doneBonds.end(), bond->GetId()) != doneBonds.end())
           continue;
-        if (bond->GetBondOrder() != 2)
-          continue;
-        if (bond->IsInRing())
-          continue;
-      
-        if (!bond->GetBeginAtom()->HasSingleBond() || !bond->GetEndAtom()->HasSingleBond())
+        if (!isPotentialCisTrans(bond))
           continue;
  
         // A double bond is a stereogenic bond if there exists no automorphic
