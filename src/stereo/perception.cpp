@@ -1055,8 +1055,12 @@ namespace OpenBabel {
     // find the duplicated symmetry class
     unsigned int duplicatedSymClass = std::numeric_limits<unsigned int>::max();
     std::vector<unsigned int> nbrSymClasses;
-    FOR_NBORS_OF_ATOM (nbr, atom)
+    cout << "findDuplicatedSymmetryClass(): ";
+    FOR_NBORS_OF_ATOM (nbr, atom) {
       nbrSymClasses.push_back(symClasses.at(nbr->GetIndex()));
+      cout << nbrSymClasses.back() << " ";
+    }
+    cout << endl;
     for (unsigned int i = 0; i < nbrSymClasses.size(); ++i) {
       if (std::count(nbrSymClasses.begin(), nbrSymClasses.end(), nbrSymClasses.at(i)) >= 2) {
         duplicatedSymClass = nbrSymClasses.at(i);
@@ -1514,7 +1518,95 @@ namespace OpenBabel {
  
   // defined in src/graphsym.cpp
   std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::vector<StereogenicUnit> &set,
-    const std::vector<unsigned int> &symmetry_classes);
+      const std::vector<unsigned int> &symmetry_classes);
+
+  bool shareSymClass(std::vector<StereogenicUnit> &set1, const std::vector<StereogenicUnit> &set2, OBMol *mol,
+      const std::vector<unsigned int> &symmetry_classes)
+  {
+    if (!set1.size() || !set2.size())
+      return false;
+    
+    std::vector<unsigned int> symClasses;
+    
+    for (unsigned int i = 0; i < set1.size(); ++i) {
+      if (set1[i].type == OBStereo::Tetrahedral) {
+        OBAtom *center = mol->GetAtomById(set1[i].id);
+        symClasses.push_back(symmetry_classes[center->GetIndex()]);
+      }
+    }
+    for (unsigned int i = 0; i < set2.size(); ++i) {
+      if (set2[i].type == OBStereo::Tetrahedral) {
+        OBAtom *center = mol->GetAtomById(set2[i].id);
+        symClasses.push_back(symmetry_classes[center->GetIndex()]);
+      }
+    }
+
+    std::sort(symClasses.begin(), symClasses.end());
+
+
+    unsigned int symClassCount = std::unique(symClasses.begin(), symClasses.end()) - symClasses.begin();
+    cout << "symClassCount = " << symClassCount << endl;
+    return (symClassCount == 1);
+  }
+
+  bool shareUnit(std::vector<StereogenicUnit> &set1, const std::vector<StereogenicUnit> &set2)
+  {
+    for (unsigned int i = 0; i < set2.size(); ++i)
+      for (unsigned int j = 0; j  < set1.size(); ++j)
+        if ((set1[j].type == set2[i].type) && (set1[j].id == set2[i].id))
+          return true;
+    return false;
+  }
+
+  void merge(std::vector<StereogenicUnit> &set1, const std::vector<StereogenicUnit> &set2)
+  {
+    for (unsigned int i = 0; i < set2.size(); ++i) {
+      bool found = false;
+      for (unsigned int j = 0; j  < set1.size(); ++j) {
+        if ((set1[j].type == set2[i].type) && (set1[j].id == set2[i].id))
+          found = true;
+      }
+
+      if (!found)
+        set1.push_back(set2[i]);
+    } 
+  }
+
+  void mergeSets(std::vector<std::vector<StereogenicUnit> > &mergedSets, const std::vector<StereogenicUnit> &set,
+      OBMol *mol, const std::vector<unsigned int> &symmetry_classes)
+  {
+    for (unsigned int i = 0; i  < mergedSets.size(); ++i) {
+      if (!shareUnit(mergedSets[i], set))
+        continue;
+      if (!shareSymClass(mergedSets[i], set, mol, symmetry_classes))
+        continue;
+      merge(mergedSets[i], set);
+    }   
+  }
+  
+  void removeDuplicates(std::vector<std::vector<StereogenicUnit> > &mergedSets,
+      OBMol *mol, const std::vector<unsigned int> &symmetry_classes)
+  {
+    std::vector<std::vector<StereogenicUnit> > result;
+    std::vector<unsigned int> doneIndexes;
+    for (unsigned int i = 0; i  < mergedSets.size(); ++i) {
+      if (std::find(doneIndexes.begin(), doneIndexes.end(), i) != doneIndexes.end())
+        continue;
+      doneIndexes.push_back(i);
+      std::vector<StereogenicUnit> set = mergedSets[i];
+      for (unsigned int j = 0; j  < mergedSets.size(); ++j) {
+        if (std::find(doneIndexes.begin(), doneIndexes.end(), j) != doneIndexes.end())
+          continue;
+        if (shareUnit(set, mergedSets[j]) && shareSymClass(set, mergedSets[j], mol, symmetry_classes)) {
+          merge(set, mergedSets[j]);
+          doneIndexes.push_back(j);
+        }
+      }
+
+      result.push_back(set);
+    }
+    mergedSets = result;
+  }
 
   std::vector<std::vector<StereogenicUnit> > FindInterdependentStereogenicUnits(OBMol *mol,
       const std::vector<StereogenicUnit> &units, const std::vector<unsigned int> &symClasses, 
@@ -1528,14 +1620,16 @@ namespace OpenBabel {
 
     std::vector<StereogenicUnit> ordered = orderSetBySymmetryClasses(mol, units, symClasses);
 
-    std::vector<unsigned long> doneAtoms, doneBonds;
     for (UnitIter unit = ordered.begin(); unit != ordered.end(); ++unit) {
+      std::vector<unsigned long> doneAtoms, doneBonds;
+      /*
       if (unit->type == OBStereo::Tetrahedral)
         if (std::find(doneAtoms.begin(), doneAtoms.end(), unit->id) != doneAtoms.end())
           continue;
       if (unit->type == OBStereo::CisTrans)
         if (std::find(doneBonds.begin(), doneBonds.end(), unit->id) != doneBonds.end())
           continue;
+      */
       cout << "Checking unit.id = " << unit->id << endl;
       // select all permutations which invert the unit
       std::vector<StereoInverted::Entry> selection;
@@ -1633,10 +1727,36 @@ namespace OpenBabel {
         }
       }
       sets.push_back(set);
+ 
+      cout << "SET [ ";
+      for (unsigned int k = 0; k < set.size(); ++k) {
+        cout << set[k].id << " ";
+      }
+      cout << "]" << endl;
     
     }
+    
+    cout << "BEFORE SETS: ";
+    for (unsigned int i = 0; i  < sets.size(); ++i) {
+      cout << "[ ";
+      const std::vector<StereogenicUnit> &set = sets[i];
+      for (unsigned int k = 0; k < set.size(); ++k) {
+        cout << set[k].id << " ";
+      }
+      cout << "]  ";
+    }
+    cout << endl;
 
-    cout << "    Interdependent Sets: ";
+    
+    /*
+    for (unsigned int i = 0; i  < sets.size(); ++i) {
+      const std::vector<StereogenicUnit> &iSet = sets[i];
+      mergeSets(sets, iSet, mol, symClasses);
+    }
+    */
+    removeDuplicates(sets, mol, symClasses);
+
+    cout << "FINAL SETS: ";
     for (unsigned int i = 0; i  < sets.size(); ++i) {
       cout << "[ ";
       const std::vector<StereogenicUnit> &set = sets[i];
