@@ -560,6 +560,47 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
   return ordered;
 }
 
+void orderSetByFragmentRecursive(std::vector<StereogenicUnit> &ordered, OBAtom *atom, OBAtom *skip, 
+    const std::vector<StereogenicUnit> &set, OBBitVec &fragment)
+{
+  FOR_NBORS_OF_ATOM (nbr, atom) {
+    if (nbr->GetId() == skip->GetId())
+      continue;
+    if (!fragment.BitIsSet(nbr->GetId())) {
+      // Add the stereocenter
+      for (unsigned int i = 0; i < set.size(); ++i) {
+        const StereogenicUnit &unit = set[i];
+        if (unit.type == OBStereo::Tetrahedral) {
+          if (nbr->GetId() == unit.id)
+            ordered.push_back(unit);
+        }
+      }
+ 
+      fragment.SetBitOn(nbr->GetId());
+      orderSetByFragmentRecursive(ordered, &*nbr, skip, set, fragment);
+    }
+  }
+}
+
+std::vector<StereogenicUnit> orderSetByFragment(OBAtom *atom, OBAtom *skip, const std::vector<StereogenicUnit> &set)
+{
+  std::vector<StereogenicUnit> ordered;
+  OBBitVec fragment;
+
+  for (unsigned int i = 0; i < set.size(); ++i) {
+    const StereogenicUnit &unit = set[i];
+    if (unit.type == OBStereo::Tetrahedral) {
+      if (atom->GetId() == unit.id)
+        ordered.push_back(unit);
+    }
+  }
+    
+  fragment.SetBitOn(atom->GetId());
+  orderSetByFragmentRecursive(ordered, atom, skip, set, fragment);
+
+  return ordered;
+}
+
 int findDescriptor(const OBTetrahedralStereo::Config &config)
 {
   cout << "findDescriptor   " << config << endl;
@@ -572,14 +613,12 @@ int findDescriptor(const OBTetrahedralStereo::Config &config)
 }
                 
 std::vector<int> findDescriptorVector(OBMol *mol, const OBBitVec &fragment,
-    const std::vector<StereogenicUnit> &stereoUnits, const std::vector<unsigned int> &symmetry_classes)
+    const std::vector<StereogenicUnit> &orderedUnits, const std::vector<unsigned int> &symmetry_classes)
 {
-  std::vector<StereogenicUnit> ordered = orderSetBySymmetryClasses(mol, stereoUnits, symmetry_classes);
-
   cout << "dv = ";
   std::vector<int> v;
-  for (unsigned int i = 0; i < ordered.size(); ++i) {
-    const StereogenicUnit &unit = ordered[i];
+  for (unsigned int i = 0; i < orderedUnits.size(); ++i) {
+    const StereogenicUnit &unit = orderedUnits[i];
     if (unit.type == OBStereo::Tetrahedral) {
       if (!fragment.BitIsOn(unit.id))
         continue;
@@ -599,9 +638,9 @@ std::vector<int> findDescriptorVector(OBMol *mol, const OBBitVec &fragment,
 }
 
 int findDescriptorVectorValue(OBMol *mol, const OBBitVec &fragment, 
-    const std::vector<StereogenicUnit> &stereoUnits, const std::vector<unsigned int> &symmetry_classes)
+    const std::vector<StereogenicUnit> &orderedUnits, const std::vector<unsigned int> &symmetry_classes)
 {
-  std::vector<int> v = findDescriptorVector(mol, fragment, stereoUnits, symmetry_classes);
+  std::vector<int> v = findDescriptorVector(mol, fragment, orderedUnits, symmetry_classes);
 
   int value = 0;
   for (unsigned int i = 0; i < v.size(); ++i) {
@@ -818,8 +857,19 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
                 cout << "All stereo resolved for fragments" << endl;
                 // If all stereocenters in both ligands are resolved, we need to take 
                 // the descriptor values for the ligands into account.
-                int dv1 = findDescriptorVectorValue(_pmol, fragment1, m_stereoUnits, symmetry_classes);
-                int dv2 = findDescriptorVectorValue(_pmol, fragment2, m_stereoUnits, symmetry_classes);
+                int dv1, dv2; // descriptor vector values
+
+                if (fragment1 == fragment2) {
+                  // special case:
+                  dv1 = findDescriptorVectorValue(_pmol, fragment1, 
+                      orderSetByFragment(equivalentNbrs[0], center, m_stereoUnits), symmetry_classes);
+                  dv2 = findDescriptorVectorValue(_pmol, fragment2, 
+                      orderSetByFragment(equivalentNbrs[1], center, m_stereoUnits), symmetry_classes);
+                }  else {
+                  std::vector<StereogenicUnit> ordered(orderSetBySymmetryClasses(_pmol, m_stereoUnits, symmetry_classes));
+                  dv1 = findDescriptorVectorValue(_pmol, fragment1, ordered, symmetry_classes);
+                  dv2 = findDescriptorVectorValue(_pmol, fragment2, ordered, symmetry_classes);
+                }
                 cout << "dv1 = " << dv1 << endl;
                 cout << "dv2 = " << dv2 << endl;
 
