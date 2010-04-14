@@ -725,10 +725,30 @@ namespace OpenBabel {
 
   ///@name Stereogenic unit identification
   ///@{
+  /**
+   * Find the stereogenic units in a molecule using a set of rules [1]. The
+   * atom symmetry classes are the starting point.
+   *
+     @verbatim
+     Reference:
+     [1] M. Razinger, K. Balasubramanian, M. Perdih, M. E. Munk, Stereoisomer
+     Generation in Computer-Enhanced Structure Elucidation, J. Chem. Inf.
+     Comput. Sci. 1993, 33, 812-825
+     @endverbatim
+   */
   OBAPI std::vector<StereogenicUnit> FindStereogenicUnits(OBMol *mol, 
       const std::vector<unsigned int> &symClasses);
+  /**
+   * Find the stereogenic units in a molecule making use of the automorphisms.
+   */
   OBAPI std::vector<StereogenicUnit> FindStereogenicUnits(OBMol *mol, 
       const std::vector<unsigned int> &symClasses, const OBPermutationGroup &automorphisms);
+  /**
+   * Find the sets of interdependent stereogenic units.
+   */
+  OBAPI std::vector<std::vector<StereogenicUnit> > FindInterdependentStereogenicUnits(OBMol *mol,
+      const std::vector<StereogenicUnit> &units, const std::vector<unsigned int> &symClasses, 
+      const OBPermutationGroup &automorphisms);
   ///@}
 
   /**

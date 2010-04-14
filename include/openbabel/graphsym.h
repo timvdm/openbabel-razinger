@@ -20,6 +20,8 @@ GNU General Public License for more details.
 #define OB_GRAPHSYM_H
 
 #include <openbabel/babelconfig.h>
+#include <openbabel/permutation.h>
+#include <openbabel/stereo/stereo.h>
 #include <vector>
 
 #ifndef EXTERN
@@ -60,6 +62,7 @@ namespace OpenBabel {
                            
       int CalculateSymmetry(std::vector<unsigned int> &symmetry_classes, bool breakChiralTies);
       void BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_classes);
+      void NewBreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_classes);
     public:
       //! Constructor
       OBGraphSym(OBMol* pmol, OBBitVec* frag_atoms = NULL);
@@ -89,6 +92,14 @@ namespace OpenBabel {
        * @return FIXME
        */
       void CanonicalLabels(vector<unsigned int> &symmetry_classes);
+      
+      
+      int Iterate(vector<unsigned int> &symmetry_classes);
+
+      OBPermutationGroup m_G;
+      std::vector<StereogenicUnit> m_stereoUnits;
+      std::vector< vector<StereogenicUnit> > m_interdependentSets;
+     
     };
 
       

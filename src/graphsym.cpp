@@ -446,6 +446,416 @@ void IdsToSymClasses(OBMol *mol, OBTetrahedralStereo::Config &config,
   }
 }
 
+bool setsContainSameSymmetryClasses(OBMol *mol, const std::vector<StereogenicUnit> &set1,
+    const std::vector<StereogenicUnit> &set2, const std::vector<unsigned int> &symmetry_classes)
+{
+  for (unsigned int i = 0; i < set1.size(); ++i) {
+    bool found = false;
+    if (set1[i].type == OBStereo::Tetrahedral) {
+      for (unsigned int j = 0; j < set2.size(); ++j) {
+        if (set2[i].type != OBStereo::Tetrahedral)
+          continue;
+
+        OBAtom *iAtom = mol->GetAtomById(set1[i].id);
+        OBAtom *jAtom = mol->GetAtomById(set2[j].id);
+        if (symmetry_classes[iAtom->GetIndex()] == symmetry_classes[jAtom->GetIndex()]) {
+          found = true;
+          break;        
+        }
+      }
+    }
+
+    if (!found)
+      return false;
+  }
+
+  return true;
+}
+
+bool CompareSetSizes(const std::vector< std::vector<StereogenicUnit> > &set1,
+                     const std::vector< std::vector<StereogenicUnit> > &set2)
+{
+  //return set1[0].size() < set2[0].size();
+  return set1.size() > set2.size();
+}
+
+OBAtom* findAtomWithLowestRank(OBMol *mol, const std::vector<StereogenicUnit> &set, 
+    const std::vector<unsigned int> &symmetry_classes)
+{
+  unsigned int lowestSymClass = mol->NumAtoms();
+  for (unsigned int k = 0; k < set.size(); ++k) { // foreach stereogenic unit
+    const StereogenicUnit &unit = set[k];
+    if (unit.type == OBStereo::Tetrahedral) {
+      OBAtom *center = mol->GetAtomById(unit.id);
+      unsigned int symClass = symmetry_classes[center->GetIndex()];
+      if (symClass < lowestSymClass)
+        lowestSymClass = symClass;
+    }
+    // FIXME CisTrans
+  }
+  for (unsigned int k = 0; k < set.size(); ++k) { // foreach stereogenic unit
+    const StereogenicUnit &unit = set[k];
+    if (unit.type == OBStereo::Tetrahedral) {
+      OBAtom *center = mol->GetAtomById(unit.id);
+      unsigned int symClass = symmetry_classes[center->GetIndex()];
+      if (symClass == lowestSymClass)
+        return center;
+    }
+  }
+  return 0;
+}
+
+  enum NeighborSymmetryClasses 
+  { 
+    // Tetrahedral
+    T1234 = 1, // 4 different symmetry classes 
+    T1123 = 2, // 3 different symmetry classes, 1 class duplicated (2 times)
+    T1122 = 3, // 2 different symmetry classes, 1 class duplicated (3 times)
+    T1112 = 4, // 2 different symmetry classes, each class duplicated (2 times)
+    T1111 = 5, // 1 symmetry class, duplictaed 4 times
+    // CisTrans
+    C12 = 6, // 2 different symmetry classes
+    C11 = 7 // the same symmetry class
+  };
+
+  int classifyTetrahedralNbrSymClasses(const std::vector<unsigned int> &symClasses, OBAtom *atom);
+  int classifyCisTransNbrSymClasses(const std::vector<unsigned int> &symClasses, OBBond *doubleBond, OBAtom *atom);
+
+struct IndexClassPair
+{
+  IndexClassPair(unsigned int _setIndex, unsigned int _symClass) : setIndex(_setIndex), symClass(_symClass) {}
+  unsigned int setIndex;
+  unsigned int symClass;
+};
+
+bool CompareIndexClassPair(const IndexClassPair &pair1, const IndexClassPair &pair2)
+{
+  return pair1.symClass < pair2.symClass;
+}
+
+std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::vector<StereogenicUnit> &set,
+    const std::vector<unsigned int> &symmetry_classes)
+{
+  std::vector<IndexClassPair> pairs;
+  cout << "XXX INPUT: ";
+  for (unsigned int i = 0; i < set.size(); ++i) {
+    const StereogenicUnit &unit = set[i];
+    if (unit.type == OBStereo::Tetrahedral) {
+      OBAtom *center = mol->GetAtomById(unit.id);
+      cout << unit.id << " ";
+      pairs.push_back(IndexClassPair(i, symmetry_classes[center->GetIndex()]));
+    }  
+  }
+  cout << endl;
+
+  std::sort(pairs.begin(), pairs.end(), CompareIndexClassPair);
+  
+  std::vector<StereogenicUnit> ordered;
+  cout << "XXX ORDERED: ";
+  for (unsigned int i = 0; i < pairs.size(); ++i) {
+    ordered.push_back(set[pairs[i].setIndex]);
+    cout << pairs[i].symClass << " ";
+  }
+  cout << endl;
+  return ordered;
+}
+
+int findDescriptor(const OBTetrahedralStereo::Config &config)
+{
+  cout << "findDescriptor   " << config << endl;
+  std::vector<unsigned long> refs = config.refs;
+  refs.insert(refs.begin(), config.from);
+  if (OBStereo::NumInversions(refs) % 2)
+    return 1;
+  else
+    return 0; 
+}
+                
+std::vector<int> findDescriptorVector(OBMol *mol, const OBBitVec &fragment,
+    const std::vector<StereogenicUnit> &stereoUnits, const std::vector<unsigned int> &symmetry_classes)
+{
+  std::vector<StereogenicUnit> ordered = orderSetBySymmetryClasses(mol, stereoUnits, symmetry_classes);
+
+  cout << "dv = ";
+  std::vector<int> v;
+  for (unsigned int i = 0; i < ordered.size(); ++i) {
+    const StereogenicUnit &unit = ordered[i];
+    if (unit.type == OBStereo::Tetrahedral) {
+      if (!fragment.BitIsOn(unit.id))
+        continue;
+
+      OBStereoFacade facade(mol, false);
+      if (!facade.HasTetrahedralStereo(unit.id))
+        continue;
+      OBTetrahedralStereo::Config config = facade.GetTetrahedralStereo(unit.id)->GetConfig(); 
+      IdsToSymClasses(mol, config, symmetry_classes);
+      v.push_back(findDescriptor(config));
+      cout << v.back() << "  ";
+    }
+  }
+  cout << endl;
+
+  return v;
+}
+
+int findDescriptorVectorValue(OBMol *mol, const OBBitVec &fragment, 
+    const std::vector<StereogenicUnit> &stereoUnits, const std::vector<unsigned int> &symmetry_classes)
+{
+  std::vector<int> v = findDescriptorVector(mol, fragment, stereoUnits, symmetry_classes);
+
+  int value = 0;
+  for (unsigned int i = 0; i < v.size(); ++i) {
+    if (!v[i])
+      continue;
+    int power = v.size() - i - 1;
+    value += std::pow(2, power);
+  }
+
+  return value;
+}
+
+bool isTetrahedral(OBAtom *atom, const std::vector<StereogenicUnit> &units)
+{
+  for (unsigned int i = 0; i < units.size(); ++i) {
+    const StereogenicUnit &unit = units[i];
+    if (unit.type != OBStereo::Tetrahedral)
+      continue;
+    if (unit.id == atom->GetId())
+      return true;
+  }
+  return false;
+}
+
+  // defined in src/stereo/perception.cpp
+  unsigned int findDuplicatedSymmetryClass(OBAtom *atom, const std::vector<unsigned int> &symClasses);
+  void findDuplicatedSymmetryClasses(OBAtom *atom, const std::vector<unsigned int> &symClasses,
+      unsigned int &duplicated1, unsigned int &duplicated2);
+  OBBitVec getFragment(OBAtom *atom, OBAtom *skip);
+
+void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int> > &atom_sym_classes)
+{
+  cout << "ENTER NewBreakChiralTies..." << endl;
+  // Convert the atom/class pairs to an array indexed by atom idx.
+  // This is just for convenience in the next step.  Note that there
+  // will be "holes" in this vector since it's a molecule fragment.
+  vector<unsigned int> symmetry_classes(_pmol->NumAtoms());
+  vector<pair<OBAtom*,unsigned int> >::iterator api;
+  for (api = atom_sym_classes.begin(); api < atom_sym_classes.end(); api++)
+    symmetry_classes[api->first->GetIndex()] = api->second;
+
+  if (!m_G.Size()) {
+    m_G = FindAutomorphisms(_pmol, symmetry_classes);
+    // find all types of stereogenic units (i.e. tetrahedral, cis/trans, ...)
+    m_stereoUnits = FindStereogenicUnits(_pmol, symmetry_classes, m_G);
+    m_interdependentSets = FindInterdependentStereogenicUnits(_pmol,
+      m_stereoUnits, symmetry_classes, m_G);
+
+  }
+
+
+  cout << "centers not T1234: ";
+  bool foundTie = false;
+  for (unsigned int i = 0; i < m_stereoUnits.size(); ++i) {
+    const StereogenicUnit &unit = m_stereoUnits[i];
+    if (unit.type == OBStereo::Tetrahedral) {
+      OBAtom *atom = _pmol->GetAtomById(unit.id);
+      if (classifyTetrahedralNbrSymClasses(symmetry_classes, atom) != T1234) {
+        foundTie = true;
+        cout << atom->GetId() << "  ";
+      }
+    }
+  }
+   
+  cout << endl;
+  if (!foundTie)
+    return;
+
+
+ 
+  // find tetrahedral atoms using current symmetry classes
+    if (!_pmol->HasChiralityPerceived()) {
+      //cout << "!_pmol->HasChiralityPerceived()" << endl;
+      switch (_pmol->GetDimension()) {
+        case 2:
+          _pmol->DeleteData(OBGenericDataType::StereoData);
+          TetrahedralFrom2D(_pmol, m_stereoUnits);
+          break;
+        case 3:
+          _pmol->DeleteData(OBGenericDataType::StereoData);
+          TetrahedralFrom3D(_pmol, m_stereoUnits);
+          break;
+        default:
+          TetrahedralFrom0D(_pmol, m_stereoUnits);
+          break;
+      }
+    } 
+
+  std::vector<unsigned int> doneIndexes;
+  std::vector< std::vector< std::vector<StereogenicUnit> > > duplicatedSets;
+  // Find duplicated sets (i.e. identical sets after ids are replaced by symmetry classes)
+  for (unsigned int i = 0; i < m_interdependentSets.size(); ++i) {
+    if (std::find(doneIndexes.begin(), doneIndexes.end(), i) != doneIndexes.end())
+      continue;
+    const std::vector<StereogenicUnit> &iSet = m_interdependentSets[i];
+    std::vector< std::vector<StereogenicUnit> > sets;
+    sets.push_back(iSet);
+    doneIndexes.push_back(i);
+    for (unsigned int j = 0; j < m_interdependentSets.size(); ++j) {
+      if (std::find(doneIndexes.begin(), doneIndexes.end(), j) != doneIndexes.end())
+        continue;
+      const std::vector<StereogenicUnit> &jSet = m_interdependentSets[j];
+      if (iSet.size() != jSet.size())
+        continue;
+      if (setsContainSameSymmetryClasses(_pmol, iSet, jSet, symmetry_classes)) {
+        sets.push_back(jSet);
+        doneIndexes.push_back(j);
+      }
+    }
+
+    duplicatedSets.push_back(sets);
+  }
+
+  // sort duplicated sets
+  std::sort(duplicatedSets.begin(), duplicatedSets.end(), CompareSetSizes); 
+
+  for (unsigned int i = 0; i  < duplicatedSets.size(); ++i) {
+    const std::vector< std::vector<StereogenicUnit> > &sets = duplicatedSets[i];
+    cout << "Duplicated set:" << endl;
+    for (unsigned int j = 0; j < sets.size(); ++j) {
+      cout << "    Set " << j+1 << endl << "        ";
+      for (unsigned int k = 0; k < sets[j].size(); ++k) {
+        cout << sets[j][k].id << " ";
+      }
+      cout << endl;
+    }
+  }
+
+  bool brokenTies = false;
+  for (unsigned int i = 0; i  < duplicatedSets.size(); ++i) { // foreach duplicated set of sets
+    const std::vector< std::vector<StereogenicUnit> > &sets = duplicatedSets[i];
+    int breakUnitsClassification;
+    std::vector<StereogenicUnit> breakUnits;
+    // Select the unresolved units with lowest symmetry class
+    // unresolved: classification != T1234
+    for (unsigned int j = 0; j < sets.size(); ++j) { // foreach interdependent set
+      const std::vector<StereogenicUnit> &set = sets[j];
+      
+      std::vector<StereogenicUnit> ordered = orderSetBySymmetryClasses(_pmol, set, symmetry_classes);
+      for (unsigned int k = 0; k < ordered.size(); ++k) { // foreach stereogenic unit
+        const StereogenicUnit &unit = ordered[k];
+        if (unit.type == OBStereo::Tetrahedral) {
+          OBAtom *center = _pmol->GetAtomById(unit.id);
+          int classification = classifyTetrahedralNbrSymClasses(symmetry_classes, center);
+          if (classification != T1234) {
+            breakUnitsClassification = classification;
+            breakUnits.push_back(unit);
+            break;          
+          }
+        }
+      }
+    }
+
+    for (unsigned int j = 0; j < symmetry_classes.size(); ++j)
+      symmetry_classes[j] *= 2;
+
+    for (unsigned int j = 0; j < breakUnits.size(); ++j) {
+      const StereogenicUnit &unit = breakUnits[j];
+      if (unit.type == OBStereo::Tetrahedral) {
+        OBAtom *center = _pmol->GetAtomById(unit.id);
+        OBStereoFacade stereoFacade(_pmol, false);
+        if (!stereoFacade.HasTetrahedralStereo(unit.id))
+          continue;
+        OBTetrahedralStereo::Config idConfig = stereoFacade.GetTetrahedralStereo(unit.id)->GetConfig();
+        switch (breakUnitsClassification) {
+          case T1123:
+            {
+              unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(center, symmetry_classes);
+              std::vector<OBAtom*> equivalentNbrs;
+              FOR_NBORS_OF_ATOM (nbr, center)
+                if (duplicatedSymClass == symmetry_classes[nbr->GetIndex()])
+                  equivalentNbrs.push_back(&*nbr);
+
+              cout << "RESOLVING: " << center->GetId() << endl;
+
+              OBBitVec fragment1 = getFragment(equivalentNbrs[0], center);
+              OBBitVec fragment2 = getFragment(equivalentNbrs[1], center);
+              cout << "NBR0 symClass = " << symmetry_classes[equivalentNbrs[0]->GetIndex()] << endl;
+              cout << "NBR1 symClass = " << symmetry_classes[equivalentNbrs[1]->GetIndex()] << endl;
+
+              bool allStereoResolved = true;
+              for (unsigned int k = 0; k < _pmol->NumAtoms(); ++k) {
+                OBAtom *fragAtom = _pmol->GetAtom(k+1);
+                if (fragment1.BitIsOn(fragAtom->GetId()) || fragment2.BitIsOn(fragAtom->GetId())) {
+                  if (!isTetrahedral(fragAtom, m_stereoUnits))
+                    continue;
+                  if (classifyTetrahedralNbrSymClasses(symmetry_classes, fragAtom) != T1234) {
+                    allStereoResolved = false;
+                    cout << "not resolved: " << fragAtom->GetId() << endl; 
+                  }
+                }
+              }
+              if (allStereoResolved) {
+                cout << "All stereo resolved for fragments" << endl;
+                int dv1 = findDescriptorVectorValue(_pmol, fragment1, m_stereoUnits, symmetry_classes);
+                int dv2 = findDescriptorVectorValue(_pmol, fragment2, m_stereoUnits, symmetry_classes);
+                cout << "dv1 = " << dv1 << endl;
+                cout << "dv2 = " << dv2 << endl;
+
+                brokenTies = true;
+                if (dv1 > dv2) {
+                  symmetry_classes[equivalentNbrs[0]->GetIndex()] -= 1;
+                } else
+                if (dv2 > dv1) {
+                  symmetry_classes[equivalentNbrs[1]->GetIndex()] -= 1;                
+                } 
+                
+                if (dv1 == dv2) {
+                  idConfig.specified = false;
+                  stereoFacade.GetTetrahedralStereo(unit.id)->SetConfig(idConfig);
+                }
+                // do nothing if they are the same!!
+              } else {
+                cout << "All stereo NOT resolved for fragments" << endl;
+
+                brokenTies = true;
+                OBTetrahedralStereo::Config symConfig;
+                // try numbering 1
+                symmetry_classes[equivalentNbrs[0]->GetIndex()] -= 1;
+                symConfig = idConfig;
+                IdsToSymClasses(_pmol, symConfig, symmetry_classes);
+
+                if (!findDescriptor(symConfig)) {
+                  symmetry_classes[equivalentNbrs[0]->GetIndex()] += 1; // restore
+                  // try numbering 2
+                  symmetry_classes[equivalentNbrs[1]->GetIndex()] -= 1;
+                  symConfig = idConfig;
+                  IdsToSymClasses(_pmol, symConfig, symmetry_classes);
+                }
+
+                assert(findDescriptor(symConfig));
+
+              }
+            }
+            break;
+          default:
+            break;
+        }
+      
+      }
+    }
+
+    if (brokenTies)
+      break;
+  }
+
+  Iterate(symmetry_classes);
+  for (unsigned int i = 0; i < atom_sym_classes.size(); ++i)
+    atom_sym_classes[i].second =  symmetry_classes[atom_sym_classes[i].first->GetIndex()];
+  
+  cout << "EXIT NewBreakChiralTies..." << endl;
+}
+
+
 void OBGraphSym::BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_classes)
 {
   vector<pair<OBAtom*,unsigned int> > vp1, vp2;
@@ -1001,7 +1411,8 @@ void OBGraphSym::BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_
       cout << symmetry_classes[i].first->GetIndex() << ": " << symmetry_classes[i].second << endl;
       }*/
 
-      BreakChiralTies(symmetry_classes);
+      NewBreakChiralTies(symmetry_classes);
+      //BreakChiralTies(symmetry_classes);
       CreateNewClassVector(symmetry_classes, tmp_classes);
       CountAndRenumberClasses(tmp_classes, nclasses2);
 
@@ -1014,6 +1425,7 @@ void OBGraphSym::BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_
       CreateNewClassVector(symmetry_classes, tmp_classes);
       CountAndRenumberClasses(tmp_classes, nclasses2);
     }
+
 
 
     if (nclasses1 != nclasses2) {
@@ -1090,6 +1502,7 @@ void OBGraphSym::BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_
 
   int OBGraphSym::GetSymmetry(vector<unsigned int> &symmetry_classes, bool breakChiralTies)
   {
+    cout << "ENTER GetSymmetry" << endl;
     ClearSymmetry(); // For the moment just recalculate the symmetry classes
 
     // Check to see whether we have already calculated the symmetry classes
@@ -1208,6 +1621,33 @@ void OBGraphSym::BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_
     for (int i = 0; i < vp1.size(); ++i) {
       canonical_labels[vp1.at(i).first->GetIndex()] = vp1.at(i).second;
     }
+  }
+      
+
+  int OBGraphSym::Iterate(vector<unsigned int> &symClasses)
+  {
+    // Create a vector-of-pairs, associating each atom with its Class ID.
+    vector<OBAtom*>::iterator j;
+    std::vector<std::pair<OBAtom*, unsigned int> > symmetry_classes;
+    for (OBAtom *atom = _pmol->BeginAtom(j); atom; atom = _pmol->NextAtom(j)) {
+      int idx = atom->GetIdx();
+      if (_frag_atoms->BitIsOn(idx))
+        symmetry_classes.push_back(pair<OBAtom*, unsigned int> (atom, symClasses[idx-1]));
+    }
+
+    // The heart of the matter: Do extended sum-of-invariants until no further
+    // changes are noted. 
+    int nclasses = ExtendInvariants(symmetry_classes, false);
+
+    // Convert to a vector indexed by Index
+    // Atoms not in the fragment will have a value of OBGraphSym::NoSymmetryClass
+    symClasses.clear();
+    symClasses.resize(_pmol->NumAtoms(), OBGraphSym::NoSymmetryClass);
+    for (unsigned int i = 0; i < symmetry_classes.size(); ++i) {
+      symClasses[symmetry_classes.at(i).first->GetIndex()] = symmetry_classes.at(i).second;
+    }
+
+    return nclasses;
   }
 
 
