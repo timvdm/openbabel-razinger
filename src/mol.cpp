@@ -3287,6 +3287,8 @@ namespace OpenBabel
     _vatom.clear();
     for (i = va.begin();i != va.end();++i)
       _vatom.push_back(*i);
+    
+    DeleteData(OBGenericDataType::RingData);
   }
 
   bool WriteTitles(ostream &ofs, OBMol &mol)
