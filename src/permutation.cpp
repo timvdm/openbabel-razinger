@@ -38,6 +38,8 @@ namespace OpenBabel {
     unsigned int size = G.Size();
     for (unsigned int i = 0; i < size; ++i) {
       int n = G.At(i).map.size();
+      if (!n)
+        continue;
       Eigen::MatrixXi P = Eigen::MatrixXi::Zero(n, n);
       for (int j = 0; j < n; ++j) {
         P(j, G.At(i).map.at(j)-1) = 1;
