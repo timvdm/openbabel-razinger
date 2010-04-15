@@ -1516,9 +1516,54 @@ namespace OpenBabel {
     return units;
   }
  
-  // defined in src/graphsym.cpp
-  std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::vector<StereogenicUnit> &set,
-      const std::vector<unsigned int> &symmetry_classes);
+  unsigned int getSymClass(const StereogenicUnit &unit, OBMol *mol, const std::vector<unsigned int> &symmetry_classes)
+  {
+    if (unit.type == OBStereo::Tetrahedral) {
+      OBAtom *center = mol->GetAtomById(unit.id);
+      return symmetry_classes[center->GetIndex()];
+    } else
+    if (unit.type == OBStereo::CisTrans) {
+      OBBond *bond = mol->GetBondById(unit.id);
+      OBAtom *begin = bond->GetBeginAtom();
+      OBAtom *end = bond->GetEndAtom();
+      return std::min(symmetry_classes[begin->GetIndex()], symmetry_classes[end->GetIndex()]);
+    }
+    return std::numeric_limits<unsigned int>::max();
+  }
+
+struct IndexClassPair
+{
+  IndexClassPair(unsigned int _setIndex, unsigned int _symClass) : setIndex(_setIndex), symClass(_symClass) {}
+  unsigned int setIndex;
+  unsigned int symClass;
+};
+
+bool CompareIndexClassPair(const IndexClassPair &pair1, const IndexClassPair &pair2)
+{
+  return pair1.symClass < pair2.symClass;
+}
+
+std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::vector<StereogenicUnit> &set,
+    const std::vector<unsigned int> &symmetry_classes)
+{
+  std::vector<IndexClassPair> pairs;
+  for (unsigned int i = 0; i < set.size(); ++i) {
+    const StereogenicUnit &unit = set[i];
+    if (unit.type == OBStereo::Tetrahedral) {
+      OBAtom *center = mol->GetAtomById(unit.id);
+      pairs.push_back(IndexClassPair(i, symmetry_classes[center->GetIndex()]));
+    }  
+  }
+
+  std::sort(pairs.begin(), pairs.end(), CompareIndexClassPair);
+  
+  std::vector<StereogenicUnit> ordered;
+  for (unsigned int i = 0; i < pairs.size(); ++i) {
+    ordered.push_back(set[pairs[i].setIndex]);
+  }
+  return ordered;
+}
+
 
   bool shareSymClass(std::vector<StereogenicUnit> &set1, const std::vector<StereogenicUnit> &set2, OBMol *mol,
       const std::vector<unsigned int> &symmetry_classes)
@@ -1643,21 +1688,6 @@ namespace OpenBabel {
 
   }
 
-  unsigned int getSymClass(const StereogenicUnit &unit, OBMol *mol, const std::vector<unsigned int> &symmetry_classes)
-  {
-    if (unit.type == OBStereo::Tetrahedral) {
-      OBAtom *center = mol->GetAtomById(unit.id);
-      return symmetry_classes[center->GetIndex()];
-    } else
-    if (unit.type == OBStereo::CisTrans) {
-      OBBond *bond = mol->GetBondById(unit.id);
-      OBAtom *begin = bond->GetBeginAtom();
-      OBAtom *end = bond->GetEndAtom();
-      return std::min(symmetry_classes[begin->GetIndex()], symmetry_classes[end->GetIndex()]);
-    }
-    return std::numeric_limits<unsigned int>::max();
-  }
-
   std::vector<std::vector<StereogenicUnit> > FindInterdependentStereogenicUnits(OBMol *mol,
       const std::vector<StereogenicUnit> &units, const std::vector<unsigned int> &symClasses, 
       const OBPermutationGroup &automorphisms)
@@ -1668,14 +1698,15 @@ namespace OpenBabel {
     StereoInverted inverted = StereoInverted::compute(mol, symClasses, automorphisms);
    
 
+    // Order the stereogenic units by symmetry class
     std::vector<StereogenicUnit> ordered = orderSetBySymmetryClasses(mol, units, symClasses);
 
-    //std::vector<unsigned long> doneAtoms, doneBonds;
-    
-    
     unsigned int lastSymClass = std::numeric_limits<unsigned int>::max();
     std::vector<unsigned long> doneAtoms, doneBonds, currentAtoms, currentBonds;
     for (UnitIter unit = ordered.begin(); unit != ordered.end(); ++unit) {
+      // Some logic to delay storing done stereogenic units. Once all
+      // units of the same symmetry class are done, the currentXX lists are
+      // moved to the doneXX lists.
       unsigned int currentSymClass = getSymClass(*unit, mol, symClasses);
       if (currentSymClass != lastSymClass) {
         for (unsigned int i = 0;  i < currentAtoms.size(); ++i)
@@ -1684,6 +1715,7 @@ namespace OpenBabel {
       }
       lastSymClass = currentSymClass;
 
+      // Skip this stereounit if it is already assigned to a set
       if (unit->type == OBStereo::Tetrahedral)
         if (std::find(doneAtoms.begin(), doneAtoms.end(), unit->id) != doneAtoms.end())
           continue;
@@ -1692,7 +1724,7 @@ namespace OpenBabel {
           continue;
       
       cout << "Checking unit.id = " << unit->id << endl;
-      // select all permutations which invert the unit
+      // Select all permutations which invert the current unit
       std::vector<StereoInverted::Entry> selection;
       unsigned int minNumInversions = units.size();
       for (unsigned int i = 0; i < automorphisms.Size(); ++i) {
@@ -1715,15 +1747,17 @@ namespace OpenBabel {
         }
       }
 
+      // If the first selection is empty, there are no automorphisms casuing
+      // inversion of configuration for the stereogenic unit and it belongs
+      // to a singleton set.
       if (selection.empty()) {
         std::vector<StereogenicUnit> set;
         set.push_back(*unit);
         sets.push_back(set);
         if (unit->type == OBStereo::Tetrahedral)
           currentAtoms.push_back(unit->id);
-          //doneAtoms.push_back(unit->id);
-        //if (unit->type == OBStereo::CisTrans)
-        //  doneBonds.push_back(unit->id);
+        if (unit->type == OBStereo::CisTrans)
+          currentBonds.push_back(unit->id);
         continue;
       }
 
@@ -1742,7 +1776,7 @@ namespace OpenBabel {
       }
  
 
-      // select the permutations which cause the minimal number of inversions
+      // Select the permutations which cause the minimal number of inversions
       std::vector<StereoInverted::Entry> finalSelection;
       for (unsigned int i = 0; i < selection.size(); ++i) {
         const StereoInverted::Entry &entry = selection[i];
@@ -1813,12 +1847,12 @@ namespace OpenBabel {
     cout << endl;
 
     
-    // merge overlapping sets (with same symmetry classes!)
+    // Merge overlapping sets (with same symmetry classes!)
     for (unsigned int i = 0; i  < sets.size(); ++i) {
       const std::vector<StereogenicUnit> &iSet = sets[i];
       mergeSets(sets, iSet, mol, symClasses);
     }
-    // remove duplicated sets and subsets
+    // Remove duplicated sets and subsets
     removeDuplicates(sets, mol, symClasses);
 
     cout << "FINAL SETS: ";
