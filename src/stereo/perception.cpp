@@ -1583,29 +1583,79 @@ namespace OpenBabel {
       merge(mergedSets[i], set);
     }   
   }
+
+  bool isSubSet(std::vector<StereogenicUnit> &set1, const std::vector<StereogenicUnit> &set2)
+  {
+    for (unsigned int i = 0; i < set2.size(); ++i) {
+      bool found = false;
+      for (unsigned int j = 0; j  < set1.size(); ++j) {
+        if ((set1[j].type == set2[i].type) && (set1[j].id == set2[i].id))
+          found = true;
+      }
+
+      if (!found)
+        return false;
+    }
+    return true;  
+  }
   
   void removeDuplicates(std::vector<std::vector<StereogenicUnit> > &mergedSets,
       OBMol *mol, const std::vector<unsigned int> &symmetry_classes)
   {
     std::vector<std::vector<StereogenicUnit> > result;
+
+    // remove real duplicates
     std::vector<unsigned int> doneIndexes;
     for (unsigned int i = 0; i  < mergedSets.size(); ++i) {
       if (std::find(doneIndexes.begin(), doneIndexes.end(), i) != doneIndexes.end())
         continue;
-      doneIndexes.push_back(i);
-      std::vector<StereogenicUnit> set = mergedSets[i];
+      
       for (unsigned int j = 0; j  < mergedSets.size(); ++j) {
-        if (std::find(doneIndexes.begin(), doneIndexes.end(), j) != doneIndexes.end())
+        if (mergedSets[i].size() != mergedSets[j].size())
           continue;
-        if (shareUnit(set, mergedSets[j]) && shareSymClass(set, mergedSets[j], mol, symmetry_classes)) {
-          merge(set, mergedSets[j]);
+        if (isSubSet(mergedSets[i], mergedSets[j]))
           doneIndexes.push_back(j);
-        }
       }
 
-      result.push_back(set);
+      result.push_back(mergedSets[i]);
     }
     mergedSets = result;
+
+    // remove subsets
+    result.clear();
+    doneIndexes.clear();
+    for (unsigned int i = 0; i  < mergedSets.size(); ++i) {
+      if (std::find(doneIndexes.begin(), doneIndexes.end(), i) != doneIndexes.end())
+        continue;
+ 
+      bool subSet = false;
+      for (unsigned int j = 0; j  < mergedSets.size(); ++j) {
+        if (i == j)
+          continue;
+        if (isSubSet(mergedSets[j], mergedSets[i]))
+          subSet = true;
+      }
+
+      if (!subSet)
+        result.push_back(mergedSets[i]);
+    }
+    mergedSets = result;
+
+  }
+
+  unsigned int getSymClass(const StereogenicUnit &unit, OBMol *mol, const std::vector<unsigned int> &symmetry_classes)
+  {
+    if (unit.type == OBStereo::Tetrahedral) {
+      OBAtom *center = mol->GetAtomById(unit.id);
+      return symmetry_classes[center->GetIndex()];
+    } else
+    if (unit.type == OBStereo::CisTrans) {
+      OBBond *bond = mol->GetBondById(unit.id);
+      OBAtom *begin = bond->GetBeginAtom();
+      OBAtom *end = bond->GetEndAtom();
+      return std::min(symmetry_classes[begin->GetIndex()], symmetry_classes[end->GetIndex()]);
+    }
+    return std::numeric_limits<unsigned int>::max();
   }
 
   std::vector<std::vector<StereogenicUnit> > FindInterdependentStereogenicUnits(OBMol *mol,
@@ -1620,16 +1670,27 @@ namespace OpenBabel {
 
     std::vector<StereogenicUnit> ordered = orderSetBySymmetryClasses(mol, units, symClasses);
 
+    //std::vector<unsigned long> doneAtoms, doneBonds;
+    
+    
+    unsigned int lastSymClass = std::numeric_limits<unsigned int>::max();
+    std::vector<unsigned long> doneAtoms, doneBonds, currentAtoms, currentBonds;
     for (UnitIter unit = ordered.begin(); unit != ordered.end(); ++unit) {
-      std::vector<unsigned long> doneAtoms, doneBonds;
-      /*
+      unsigned int currentSymClass = getSymClass(*unit, mol, symClasses);
+      if (currentSymClass != lastSymClass) {
+        for (unsigned int i = 0;  i < currentAtoms.size(); ++i)
+          doneAtoms.push_back(currentAtoms[i]);
+        currentAtoms.clear();
+      }
+      lastSymClass = currentSymClass;
+
       if (unit->type == OBStereo::Tetrahedral)
         if (std::find(doneAtoms.begin(), doneAtoms.end(), unit->id) != doneAtoms.end())
           continue;
       if (unit->type == OBStereo::CisTrans)
         if (std::find(doneBonds.begin(), doneBonds.end(), unit->id) != doneBonds.end())
           continue;
-      */
+      
       cout << "Checking unit.id = " << unit->id << endl;
       // select all permutations which invert the unit
       std::vector<StereoInverted::Entry> selection;
@@ -1659,9 +1720,10 @@ namespace OpenBabel {
         set.push_back(*unit);
         sets.push_back(set);
         if (unit->type == OBStereo::Tetrahedral)
-          doneAtoms.push_back(unit->id);
-        if (unit->type == OBStereo::CisTrans)
-          doneBonds.push_back(unit->id);
+          currentAtoms.push_back(unit->id);
+          //doneAtoms.push_back(unit->id);
+        //if (unit->type == OBStereo::CisTrans)
+        //  doneBonds.push_back(unit->id);
         continue;
       }
 
@@ -1708,15 +1770,18 @@ namespace OpenBabel {
         cout << endl;
       }
  
-
+      std::vector<unsigned long> setAtoms, setBonds;
       std::vector<StereogenicUnit> set;
       for (unsigned int i = 0; i < finalSelection.size(); ++i) {
         const std::vector<OBAtom*> &atoms = finalSelection[i].invertedAtoms;
         for (unsigned int j = 0; j < atoms.size(); ++j) {
           if (std::find(doneAtoms.begin(), doneAtoms.end(), atoms[j]->GetId()) != doneAtoms.end())
             continue;
+          if (std::find(setAtoms.begin(), setAtoms.end(), atoms[j]->GetId()) != setAtoms.end())
+            continue;
           set.push_back(StereogenicUnit(OBStereo::Tetrahedral, atoms[j]->GetId()));
-          doneAtoms.push_back(atoms[j]->GetId());
+          currentAtoms.push_back(atoms[j]->GetId());
+          setAtoms.push_back(atoms[j]->GetId());
         }
         const std::vector<OBBond*> &bonds = finalSelection[i].invertedBonds;
         for (unsigned int j = 0; j < bonds.size(); ++j) {
@@ -1748,12 +1813,12 @@ namespace OpenBabel {
     cout << endl;
 
     
-    /*
+    // merge overlapping sets (with same symmetry classes!)
     for (unsigned int i = 0; i  < sets.size(); ++i) {
       const std::vector<StereogenicUnit> &iSet = sets[i];
       mergeSets(sets, iSet, mol, symClasses);
     }
-    */
+    // remove duplicated sets and subsets
     removeDuplicates(sets, mol, symClasses);
 
     cout << "FINAL SETS: ";
