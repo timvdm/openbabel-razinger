@@ -20,6 +20,9 @@ GNU General Public License for more details.
 #include <openbabel/alias.h>
 #include <openbabel/depict/depict.h>
 #include <openbabel/depict/painter.h>
+#include <openbabel/depict/cairopainter.h>
+#include <openbabel/depict/magickpainter.h>
+#include <openbabel/depict/svgpainter.h>
 #include <algorithm> // std::reverse
 #include <iterator> // std::istream_iterator
 
@@ -87,7 +90,7 @@ namespace OpenBabel
   void OBDepict::SetPenWidth(double width)
   { 
     d->penWidth = width;
-    d->painter->SetPenWidth(width);
+    //d->painter->SetPenWidth(width);
   }
 
   double OBDepict::GetPenWidth() const 
@@ -201,7 +204,7 @@ namespace OpenBabel
     OBPairData *pd = dynamic_cast<OBPairData*>(atom->GetParent()->GetData("OpenBabel Symmetry Classes"));
     if (pd) {
 
-      cout << "same? = " << pd->GetValue() << endl;
+      //cout << "same? = " << pd->GetValue() << endl;
 
       istringstream iss(pd->GetValue());
       std::vector<unsigned int> symmetry_classes;
@@ -214,7 +217,7 @@ namespace OpenBabel
       vector<unsigned int>::iterator end_pos = unique(copy_sym.begin(), copy_sym.end()); // Requires sorted elements
       int nclasses = end_pos - copy_sym.begin();
 
-      cout << "sym_class[" << atom->GetIndex() << "] = " << symmetry_classes.at(atom->GetIndex()) << endl;
+      //cout << "sym_class[" << atom->GetIndex() << "] = " << symmetry_classes.at(atom->GetIndex()) << endl;
       return symmetry_classes.at(atom->GetIndex());
     }
 
@@ -279,7 +282,7 @@ namespace OpenBabel
       max_y = std::max(max_y, atom->GetY());
     }
 
-    const double margin = 40.0;
+    const double margin = 100.0;
     // translate all atoms so the bottom-left atom is at margin,margin
     for (atom = mol->BeginAtom(i); atom; atom = mol->NextAtom(i))
       atom->SetVector(atom->GetX() - min_x + margin, atom->GetY() - min_y + margin, 0.0);
@@ -287,10 +290,10 @@ namespace OpenBabel
     double width = max_x - min_x + 2*margin;
     double height = max_y - min_y + 2*margin;
     
-    //d->painter->SetPenWidth(d->penWidth);
     //d->painter->SetPenColor(d->pen));
     //d->painter->SetFillColor(OBColor("black"));
     d->painter->NewCanvas(width, height);
+    //d->painter->SetPenWidth(d->penWidth);
     
     // draw bonds
     for (OBBond *bond = mol->BeginBond(j); bond; bond = mol->NextBond(j)) {
@@ -633,6 +636,84 @@ namespace OpenBabel
     if (drawTerminalC && (atom->GetValence() == 1))
       return true;
     return false;
+  }
+  
+  void DepictSymmetryClasses(OBMol *mol, const std::vector<unsigned int> &symmetry_classes, const std::string &prefix)
+  {
+    static int n = 0;
+    n++;
+
+    std::stringstream ss;
+    ss << prefix << "_" << n << ".svg";
+
+    std::ofstream ofs(ss.str().c_str());
+
+    MagickPainter painter;
+    //SVGPainter painter(ofs);
+    OBDepict depict(&painter);
+    depict.SetBondLength(40);
+    depict.DrawMolecule(mol);
+
+
+    OBAtomIterator i;
+    for (OBAtom *atom = mol->BeginAtom(i); atom; atom = mol->NextAtom(i)) {
+      vector3 pos(atom->GetVector());
+      std::stringstream ss;
+
+      ss << symmetry_classes[atom->GetIndex()];
+      painter.SetPenColor(OBColor("red"));
+      painter.SetFillColor(OBColor("red"));
+      painter.DrawText(pos.x(), pos.y(), ss.str());
+
+      ss.str("");
+      ss << atom->GetId();
+      painter.SetPenColor(OBColor("blue"));
+      painter.SetFillColor(OBColor("blue"));
+      painter.DrawText(pos.x() - 10, pos.y(), ss.str());
+    }
+ 
+    //painter.WriteImage(ss.str());
+
+  }
+
+  void DepictAutomorphisms(OBMol *mol, const OBPermutationGroup &G, const std::string &prefix)
+  {
+    static int n = 0;
+    n++;
+
+    for (unsigned int i = 0; i < G.Size(); ++i) {
+      std::stringstream ss;
+      ss << prefix << "_" << n << "_" << i+1 << ".png";
+
+      MagickPainter painter;
+      std::ofstream ofs(ss.str().c_str());
+      //SVGPainter painter(ofs);
+
+      OBDepict depict(&painter);
+      depict.SetBondLength(40);
+      depict.DrawMolecule(mol);
+
+      painter.SetPenColor(OBColor("red"));
+      painter.SetFillColor(OBColor("red"));
+ 
+      OBAtomIterator ai;
+      for (OBAtom *atom = mol->BeginAtom(ai); atom; atom = mol->NextAtom(ai)) {
+        vector3 pos(atom->GetVector());
+        std::stringstream ss;
+
+        ss << G.At(i).map[atom->GetIndex()];
+        painter.DrawText(pos.x(), pos.y(), ss.str());
+
+        ss.str("");
+        ss << "Automorphism " << i + 1;
+        painter.DrawText(20, 20, ss.str());
+      }
+
+      painter.WriteImage(ss.str());
+
+    }
+
+
   }
 
 }

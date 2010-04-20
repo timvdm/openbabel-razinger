@@ -5,6 +5,8 @@ set(LIBRARY_VERSION 4.0.0)
 set(depict_srcs
     depict/depict.cpp
     depict/svgpainter.cpp
+    depict/cairopainter.cpp
+    depict/magickpainter.cpp
 )
 
 set(descriptors
@@ -153,6 +155,8 @@ add_library(${BABEL_LIBRARY} ${BUILD_TYPE}
 if(NOT WIN32)
   set(libs ${libs} m dl)
 endif(NOT WIN32)
+  
+set(libs ${libs} cairo Magick++)
 
 if(ZLIB_FOUND)
 target_link_libraries(${BABEL_LIBRARY} ${libs} ${ZLIB_LIBRARY})

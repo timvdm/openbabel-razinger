@@ -21,6 +21,9 @@ GNU General Public License for more details.
 
 #include <openbabel/babelconfig.h>
 #include <openbabel/math/vector3.h>
+#include <openbabel/permutation.h>
+
+#include <vector>
 
 namespace OpenBabel
 {
@@ -89,6 +92,13 @@ namespace OpenBabel
     private:
       OBDepictPrivate * const d;
   };
+
+  // DEBUG functions
+  void DepictSymmetryClasses(OBMol *mol, const std::vector<unsigned int> &symmetry_classes, 
+      const std::string &prefix);
+  void DepictAutomorphisms(OBMol *mol, const OBPermutationGroup &G, 
+      const std::string &prefix);
+
 
 }
 

@@ -58,6 +58,8 @@ GNU General Public License for more details.
 #include <openbabel/stereo/cistrans.h>
 #include <openbabel/stereo/tetrahedral.h>
 
+#include <openbabel/depict/depict.h>
+
 #include <iterator> // std::istream_iterator
 #include <cassert>
 
@@ -644,10 +646,14 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
   // Convert the atom/class pairs to an array indexed by atom index (from 0).
   // This is just for convenience in the next step.  Note that there
   // will be "holes" in this vector since it's a molecule fragment.
-  vector<unsigned int> symmetry_classes(_pmol->NumAtoms());
+  vector<unsigned int> symmetry_classes(_pmol->NumAtoms(), std::numeric_limits<unsigned long>::max());
   vector<pair<OBAtom*,unsigned int> >::iterator api;
   for (api = atom_sym_classes.begin(); api < atom_sym_classes.end(); api++)
     symmetry_classes[api->first->GetIndex()] = api->second;
+
+//  assert( _pmol->NumAtoms() == atom_sym_classes.size() );
+
+  //DepictSymmetryClasses(_pmol, symmetry_classes, "img/NewBreakChiralTies");
 
   std::vector<unsigned int> symCopy = symmetry_classes;
   std::sort(symCopy.begin(), symCopy.end());
@@ -659,6 +665,10 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
   // a tie.
   if (!m_G.Size()) {
     m_G = FindAutomorphisms(_pmol, symmetry_classes);
+    cout << "AUTO G.size() = " << m_G.Size() << endl;
+    cout << "AUTO G.At(0).map.size() = " << m_G.At(0).map.size() << endl;
+
+
     // find all types of stereogenic units (i.e. tetrahedral, cis/trans, ...)
     m_stereoUnits = FindStereogenicUnits(_pmol, symmetry_classes, m_G);
     // find interdependent stereogenic units
@@ -829,6 +839,7 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
         switch (breakUnitsClassification) {
           case T1123:
             {
+              cout << "T1123" << endl;
               // Find the duplicated symmetry class and equivalent neighbor atoms
               unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(center, symmetry_classes);
               cout << "duplicatedSymClass = " << duplicatedSymClass << endl;
@@ -923,8 +934,12 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
               }
             }
             break;
+          case T1122:
+              cout << "T1122" << endl;
+              break;
           case T1112:
             {
+              cout << "T1112" << endl;
               // Find the duplicated symmetry class and equivalent neighbor atoms
               unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(center, symmetry_classes);
               cout << "duplicatedSymClass = " << duplicatedSymClass << endl;
@@ -1507,6 +1522,60 @@ void OBGraphSym::BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_
 
 }
 
+void OBGraphSym::CreateNewClassVector(OBMol *mol, vector<pair<OBAtom*,unsigned int> > &vp1,
+                                        vector<pair<OBAtom*,unsigned int> > &vp2)
+{
+  int m,id;
+  OBAtom *atom, *nbr;
+  vector<OBEdgeBase*>::iterator nbr_iter;
+  vector<unsigned int>::iterator k;
+  vector<pair<OBAtom*,unsigned int> >::iterator vp_iter;
+
+#if DEBUG
+  cout << "CreateNewClassVector: START\n";
+  print_vector_pairs("    ", vp1);
+#endif
+
+  // There may be fewer atoms than in the whole molecule, so we can't
+  // index the vp1 array by atom->GetIdx().  Instead, create a quick
+  // mapping vector of idx-to-index for vp1.
+  vector<int> idx2index(mol->NumAtoms() + 1, -1);  // natoms + 1
+  int index = 0;
+  for (vp_iter = vp1.begin(); vp_iter != vp1.end(); vp_iter++) {
+    int idx = vp_iter->first->GetIdx();
+    idx2index[idx] = index++;
+  }
+
+  // vp2 will hold the newly-extended symmetry classes
+  vp2.resize(vp1.size());
+  vp2.clear();
+
+  // Loop over original atoms.
+  // Create a new extended varient for each atom.  Get its neighbors' class ID's,
+  // sort them into ascending order, and create a sum of (c0 + c1*10^2 + c2*10^4 + ...)
+  // which becomes the new class ID (where c0 is the current classID).
+  
+  for (vp_iter = vp1.begin(); vp_iter != vp1.end(); vp_iter++) {
+    atom = vp_iter->first;
+    id   = vp_iter->second;
+    vector<unsigned int> vtmp;
+    for (nbr = atom->BeginNbrAtom(nbr_iter); nbr; nbr = atom->NextNbrAtom(nbr_iter)) {
+      int idx = nbr->GetIdx();
+      vtmp.push_back(vp1[idx2index[idx]].second);
+    }
+
+    sort(vtmp.begin(),vtmp.end(),CompareUnsigned);
+    for (m = 100, k = vtmp.begin(); k != vtmp.end(); k++, m*=100) 
+      id += *k * m;
+    vp2.push_back(pair<OBAtom*,unsigned int> (atom, id));
+  }
+#if DEBUG
+  cout << "CreateNewClassVector: FINISH\n";
+  print_vector_pairs("    ", vp2);
+#endif
+
+}
+
 /***************************************************************************
 * FUNCTION: CountAndRenumberClasses
 *
@@ -1805,6 +1874,69 @@ void OBGraphSym::BreakChiralTies(vector<pair<OBAtom*, unsigned int> > &atom_sym_
       canonical_labels[vp1.at(i).first->GetIndex()] = vp1.at(i).second;
     }
   }
+
+  void OBGraphSym::CanonicalLabels(OBMol *mol, const std::vector<unsigned int> &symmetry_classes, 
+      std::vector<unsigned int> &canonical_labels)
+  {
+    vector<pair<OBAtom*,unsigned int> > vp1, vp2;
+    vector<OBNodeBase*>::iterator j;
+    unsigned int nclass1, nclass2; //number of classes
+    int i;
+
+    int natoms = mol->NumAtoms();
+
+    for (int i = 0; i < symmetry_classes.size(); ++i) {
+      if (symmetry_classes.at(i) != OBGraphSym::NoSymmetryClass)
+        vp1.push_back(
+            pair<OBAtom*, unsigned int>(mol->GetAtom(i+1), symmetry_classes[i]) );
+    }
+    OBGraphSym::CountAndRenumberClasses(vp1, nclass1);
+
+    /*cout << "BEFORE TieBreaker: nclass1 = " << nclass1 << ", nfragatoms = " << nfragatoms << "\n";
+      for (int i = 0; i < vp1.size(); i++) {
+      cout << vp1[i].first->GetIndex() << ": " << vp1[i].second << endl;
+      }*/
+
+    // The symmetry classes are the starting point for the canonical labels
+    if (nclass1 < natoms) {
+      int tie_broken = 1;
+      while (tie_broken) {
+        tie_broken = 0;
+        int last_rank = -1;
+        for (i = 0; i < vp1.size(); i++) {
+          vp1[i].second *= 2;             // Double symmetry classes
+          if (vp1[i].second == last_rank && !tie_broken) {
+            vp1[i-1].second -= 1;         // Break a tie
+            tie_broken = 1;
+          }
+          last_rank = vp1[i].second;
+        }
+        if (tie_broken) {
+          for (i = 0; i < 100;i++) {  //sanity check - shouldn't ever hit this number
+            OBGraphSym::CreateNewClassVector(mol, vp1, vp2);
+            OBGraphSym::CountAndRenumberClasses(vp2, nclass2);
+            vp1 = vp2;
+            if (nclass1 == nclass2) break;
+            nclass1 = nclass2;
+          }
+        } else {
+          OBGraphSym::CountAndRenumberClasses(vp1, nclass1);  // no more ties - undo the doublings
+        }
+      }
+    }
+
+    /*cout << "AFTER TieBreaker: nclass1 = " << nclass1 << ", nfragatoms = " << nfragatoms << "\n";
+      for (int i = 0; i < vp1.size(); i++) {
+      cout << vp1[i].first->GetIndex() << ": " << vp1[i].second << endl;
+      }*/
+
+    canonical_labels.resize(mol->NumAtoms(), OBGraphSym::NoSymmetryClass);
+    for (int i = 0; i < vp1.size(); ++i) {
+      canonical_labels[vp1.at(i).first->GetIndex()] = vp1.at(i).second;
+    }
+ 
+  }
+ 
       
 
   int OBGraphSym::Iterate(vector<unsigned int> &symClasses)

@@ -3,6 +3,7 @@
 #include <openbabel/obconversion.h>
 #include <openbabel/graphsym.h>
 
+
 #include <graph.hh>
 
 #include <iostream>
@@ -114,6 +115,8 @@ namespace OpenBabel {
         G.Add(generators.At(i));
     }
 
+    cout << "# generators = " << G.Size() << endl;
+
     // loop and add inverses and products until no more automorphisms are found
     unsigned int counter = 0;
     unsigned int lastSize = 0;
@@ -128,13 +131,38 @@ namespace OpenBabel {
         break;
     }
 
-    /*
-    if (nAut != G.size())
+    if (obmol->NumAtoms()) {
+      Eigen::MatrixXi A = Eigen::MatrixXi::Zero(obmol->NumAtoms(), obmol->NumAtoms());
+      FOR_BONDS_OF_MOL (bond, obmol) {
+        A(bond->GetBeginAtom()->GetIndex(), bond->GetEndAtom()->GetIndex()) = 1;
+        A(bond->GetEndAtom()->GetIndex(), bond->GetBeginAtom()->GetIndex()) = 1;
+      }
+
+      for (unsigned int i = 0; i < G.Size(); ++i) {
+        const OBPermutation &p = G.At(i);
+
+        Eigen::MatrixXi res = p.GetMatrix().transpose() * A * p.GetMatrix();
+
+        bool allOk = true;
+        for (unsigned int j = 0; j < res.rows(); ++j)
+          for (unsigned int k = 0; k < res.cols(); ++k)
+            if (res(j,k) != A(j,k))
+              allOk = false;
+
+        if (allOk)
+          cout << "OK" << endl;
+        else
+          cout << "NOT OK" << endl;
+
+      }
+    }
+
+    if (nAut != G.Size())
       cout << "ERROR: Not all " << nAut << " automorphisms are found!" << endl;
     else 
       cout << "SUCCESS: all " << nAut << " automorphisms are found!" << endl;
-      */
-    
+
+
     return G;
   }
 

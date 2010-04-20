@@ -101,9 +101,15 @@ int main(int argc,char **argv)
     OBPermutationGroup G = FindAutomorphisms(&mol, symmetry_classes);
 
 
-    cout << "automorphisms:" << endl;
     for (unsigned int i = 0; i < G.Size(); ++i) {
-      G.At(i).Print();
+      cout << "  p" << i+1 << " = [";
+      for (unsigned int j = 0; j < G.At(i).map.size(); ++j) {
+        if (j > 0)
+          cout << ",";
+        cout << G.At(i).map[j];
+      }
+      cout << "]" << endl;
+
     }
       
   } // end for loop

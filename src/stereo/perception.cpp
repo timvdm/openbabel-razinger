@@ -27,6 +27,8 @@
 #include <openbabel/graphsym.h>
 #include <openbabel/oberror.h>
 
+#include <openbabel/depict/depict.h>
+
 #include <limits>
 #include <set>
 
@@ -1055,12 +1057,12 @@ namespace OpenBabel {
     // find the duplicated symmetry class
     unsigned int duplicatedSymClass = std::numeric_limits<unsigned int>::max();
     std::vector<unsigned int> nbrSymClasses;
-    cout << "findDuplicatedSymmetryClass(): ";
+    //cout << "findDuplicatedSymmetryClass(): ";
     FOR_NBORS_OF_ATOM (nbr, atom) {
       nbrSymClasses.push_back(symClasses.at(nbr->GetIndex()));
-      cout << nbrSymClasses.back() << " ";
+      //cout << nbrSymClasses.back() << " ";
     }
-    cout << endl;
+    //cout << endl;
     for (unsigned int i = 0; i < nbrSymClasses.size(); ++i) {
       if (std::count(nbrSymClasses.begin(), nbrSymClasses.end(), nbrSymClasses.at(i)) >= 2) {
         duplicatedSymClass = nbrSymClasses.at(i);
@@ -1070,30 +1072,321 @@ namespace OpenBabel {
     return duplicatedSymClass;
   }
 
+  void findDuplicatedSymmetryClasses(OBAtom *atom, const std::vector<unsigned int> &symClasses,
+      unsigned int &duplicated1, unsigned int &duplicated2)
+  { 
+    std::vector<unsigned int> nbrSymClasses;
+    FOR_NBORS_OF_ATOM (nbr, atom)
+      nbrSymClasses.push_back(symClasses.at(nbr->GetIndex()));
+    std::sort(nbrSymClasses.begin(), nbrSymClasses.end());
+    duplicated1 = nbrSymClasses[0];
+    duplicated2 = nbrSymClasses[2];
+  }
 
+
+  unsigned int computePermutationComplexity(const OBPermutation &p,
+      unsigned int index1, unsigned int index2)
+  {
+    unsigned int sum = 0;
+
+    for (unsigned int i = 0; i < p.map.size(); ++i) {
+      unsigned int subsum = 0;
+      unsigned int idx = i + 1; 
+      for (;;) {
+        idx = p.map[idx-1];
+        if (idx == i + 1)
+          break;
+        if (sum+1 > 1000)
+          break;
+        ++subsum;
+      }
+      sum += subsum;
+    }
+
+    /*
+    i = index2;
+    for (;;) {
+      i = p.map[i-1];
+      if (i == index2)
+        break;
+      if (sum+1 > 1000)
+        break;
+      ++sum;
+    }
+    */
+
+
+    cout << "COMPLEXITY = " << sum << endl;
+    return sum;
+  }
+
+ 
 
   bool permutationInvertsTetrahedralCenter(const OBPermutation &p, OBAtom *center, 
-      const std::vector<unsigned int> &symmetry_classes)
+      //const std::vector<unsigned int> &symmetry_classes, bool alternative)
+      const std::vector<unsigned int> &symmetry_classes, const std::vector<unsigned int> &canonical_labels)
   {
     OBMol *mol = center->GetParent();
-  
     unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(center, symmetry_classes);
+    
+    /*
+    std::vector<OBBitVec> mergedRings = mergeRings(mol);
+    unsigned int numInversions = 0;
+    OBAtom *otherCenter = mol->GetAtom(p.map[center->GetIndex()]);
+    //OBAtom *otherCenter = center;
+    
+    while (otherCenter != center) {
+      if (isInSameMergedRing(mergedRings, center->GetIndex() + 1, otherCenter->GetIndex() + 1)) {
+        otherCenter = center;
+        break;
+      }
+
+      cout << "otherCenter = " << otherCenter->GetIndex()+1 << endl;
+      std::vector<unsigned long> tlist;
+      FOR_NBORS_OF_ATOM (nbr, otherCenter) {
+        if (symmetry_classes[nbr->GetIndex()] == duplicatedSymClass)
+          tlist.push_back(nbr->GetIndex());
+      }
+
+      std::sort(tlist.begin(), tlist.end());
+            //for (unsigned int i = 0; i < tlist.size(); ++i)
+      //  tlist[i] = p.map[tlist[i]];
+     // std::vector<unsigned long> map = tlist;
       
-    std::vector<unsigned int> tlist;
-    FOR_NBORS_OF_ATOM (nbr, center) {
-      if (symmetry_classes[nbr->GetIndex()] == duplicatedSymClass)
-        tlist.push_back(nbr->GetIndex() + 1);
+      std::vector<unsigned long> map(tlist.size());
+      for (unsigned int i = 0; i < p.map.size(); ++i)
+        for (unsigned int j = 0; j < tlist.size(); ++j)
+          if (p.map[i] == tlist[j] + 1)
+            map[j] = i + 1;
+
+//      for (unsigned int i = 0; i < tlist.size(); ++i)
+//        map.push_back(std::find(p.map.begin(), p.map.end(), tlist[i]) - p.map.begin() + 1);
+ 
+
+      //std::vector<unsigned long> map;
+      //for (unsigned int i = 0; i < p.map.size(); ++i) {
+      //  if (std::find(tlist.begin(), tlist.end(), p.map[i]-1) != tlist.end())
+      //    map.push_back(p.map[i]);
+      //}
+   
+      numInversions += OBStereo::NumInversions(map) % 2;
+
+      otherCenter = mol->GetAtom(p.map[otherCenter->GetIndex()]);
     }
 
+//    cout << "numInversions = " << numInversions << endl;
+    std::vector<unsigned long> tlist, canlist;
+    cout << "  idx = " << otherCenter->GetIdx() << "   tlist = ";
+    FOR_NBORS_OF_ATOM (nbr, otherCenter) {
+      if (symmetry_classes[nbr->GetIndex()] == duplicatedSymClass) {
+        tlist.push_back(nbr->GetIndex());
+        cout << nbr->GetIndex() + 1 << " ";
+      }
+    }
+
+    std::sort(tlist.begin(), tlist.end());
+    std::vector<unsigned long> map(tlist.size());
+    for (unsigned int i = 0; i < p.map.size(); ++i)
+      for (unsigned int j = 0; j < tlist.size(); ++j)
+        if (p.map[i] == tlist[j] + 1)
+          map[j] = i + 1;
+
+*/
+    //std::vector<unsigned long> map;
+    /*
+    for (unsigned int i = 0; i < p.map.size(); ++i)
+      if (std::find(canlist.begin(), canlist.end(), p.map[i]) != canlist.end())
+        map.push_back(p.map[i]);
+    */
+ 
+
+//    for (unsigned int i = 0; i < tlist.size(); ++i)
+  //    map.push_back(std::find(p.map.begin(), p.map.end(), tlist[i]) - p.map.begin() + 1);
+      //map.push_back(p.map[tlist[i]] - 1);
+/*    
+    cout << "    found = ";
+    for (unsigned int i = 0; i < map.size(); ++i)
+      cout << map[i] << " ";
+
+    for (unsigned int i = 0; i < map.size(); ++i) {
+      canlist.push_back(canonical_labels[map[i]-1]);
+    }
+    std::sort(canlist.begin(), canlist.end());
+    std::vector<unsigned long> canmap(canlist.size());
+    for (unsigned int i = 0; i < p.map.size(); ++i)
+      for (unsigned int j = 0; j < canlist.size(); ++j)
+        if (p.map[i] == canlist[j])
+          canmap[j] = i + 1;
+
+
+    cout << "    canon = ";
+    for (unsigned int i = 0; i < canmap.size(); ++i)
+      cout << canmap[i] << " ";
+
+//    numInversions += OBStereo::NumInversions(canlist) % 2;
+    numInversions += OBStereo::NumInversions(map) % 2;
+    cout << "  numInv = " << OBStereo::NumInversions(map) % 2 << "  " << 
+      OBStereo::NumInversions(canmap) % 2 << endl;
+*/
+    /*
     std::vector<unsigned long> map;
     for (unsigned int i = 0; i < p.map.size(); ++i) {
-      if (std::find(tlist.begin(), tlist.end(), p.map[i]) != tlist.end())
+      if (std::find(tlist.begin(), tlist.end(), p.map[i]-1) != tlist.end())
         map.push_back(p.map[i]);
     }
+    */
+ /*
+    return numInversions % 2;
+
+    if (numInversions % 2)
+      return OBStereo::NumInversions(map) % 2;
+    else
+      return OBStereo::NumInversions(map) % 2 == 1;
+
+ */
+
+    //if (alternative) {
+
+    /*
+      OBAtom *otherCenter = 0;
+      for (unsigned int i = 0; i < p.map.size(); ++i)
+        if (p.map[i] == center->GetIdx())
+          otherCenter = mol->GetAtom(i+1);
+
+      if (!otherCenter)
+        return false;
+      
+      unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(center, symmetry_classes);
+
+      if (center->GetId() != otherCenter->GetId())
+        return false;
+
+      {
+        std::vector<unsigned int> tlist;
+        FOR_NBORS_OF_ATOM (nbr, center)
+          if (symmetry_classes[nbr->GetIndex()] == duplicatedSymClass)
+            tlist.push_back(nbr->GetIndex() + 1);
+
+        std::vector<unsigned long> map;
+        for (unsigned int i = 0; i < p.map.size(); ++i) {
+          if (std::find(tlist.begin(), tlist.end(), p.map[i]) != tlist.end())
+            map.push_back(p.map[i]);
+        }
+
+        return OBStereo::NumInversions(map) % 2;
+      }
+
+      cout << center->GetId() << " ?= " << otherCenter->GetId();
+
+      std::vector<unsigned int> tlist1, tlist2;
+      FOR_NBORS_OF_ATOM (nbr, center)
+        if (symmetry_classes[nbr->GetIndex()] == duplicatedSymClass)
+          tlist1.push_back(nbr->GetIndex() + 1);
+      FOR_NBORS_OF_ATOM (nbr, otherCenter) 
+        if (symmetry_classes[nbr->GetIndex()] == duplicatedSymClass)
+          tlist2.push_back(nbr->GetIndex() + 1);
+
+      cout << "  tlist1 = " << tlist1[0] << " " << tlist1[1];
+      cout << "  tlist2 = " << tlist2[0] << " " << tlist2[1];
+      std::vector<unsigned long> map1, map2;
+      for (unsigned int i = 0; i < p.map.size(); ++i) {
+        if (std::find(tlist1.begin(), tlist1.end(), p.map[i]) != tlist1.end())
+          map1.push_back(p.map[i]);
+        if (std::find(tlist2.begin(), tlist2.end(), p.map[i]) != tlist2.end())
+          map2.push_back(p.map[i]);
+      }
+      cout << "  map1 = " << map1[0] << " " << map1[1];
+      cout << "  map2 = " << map2[0] << " " << map2[1];
+      cout << endl;
+ 
+
+
+
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+      /*
+//      if (tlist.size() == 2) {
+        unsigned int complexity1 = computePermutationComplexity(p, 0, 1);
+        OBPermutation pCopy = p;
+        unsigned int tmp = pCopy.map[tlist[0]-1];
+        pCopy.map[tlist[0]-1] = pCopy.map[tlist[1]-1];
+        pCopy.map[tlist[1]-1] = tmp;
+        unsigned int complexity2 = computePermutationComplexity(pCopy, 0, 1);
+        if (complexity2 < complexity1)
+          return true;
+  //    } 
+*/
+//      return false;
+ 
+   // }
+   /* 
+    if (classifyTetrahedralNbrSymClasses(symmetry_classes, center) == T1122) {
+      unsigned int duplicatedSymClass1, duplicatedSymClass2;
+      findDuplicatedSymmetryClasses(center, symmetry_classes, duplicatedSymClass1, duplicatedSymClass2);
+
+      std::vector<unsigned int> tlist1, tlist2;
+      FOR_NBORS_OF_ATOM (nbr, center) {
+        if (symmetry_classes[nbr->GetIndex()] == duplicatedSymClass1)
+          tlist1.push_back(nbr->GetIndex() + 1);
+        if (symmetry_classes[nbr->GetIndex()] == duplicatedSymClass2)
+          tlist2.push_back(nbr->GetIndex() + 1);
+      }
+
+      std::vector<unsigned long> map1, map2;
+      for (unsigned int i = 0; i < p.map.size(); ++i) {
+        if (std::find(tlist1.begin(), tlist1.end(), p.map[i]) != tlist1.end())
+          map1.push_back(p.map[i]);
+        if (std::find(tlist2.begin(), tlist2.end(), p.map[i]) != tlist2.end())
+          map2.push_back(p.map[i]);
+      }
+
+      return (OBStereo::NumInversions(map1) % 2) + (OBStereo::NumInversions(map2) % 2) == 1;
+    } 
+    
+    unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(center, symmetry_classes);
+*/
+    std::vector<unsigned long> tlist;
+    cout << "  idx = " << center->GetIdx() << "   tlist = ";
+    FOR_NBORS_OF_ATOM (nbr, center) {
+      if (symmetry_classes[nbr->GetIndex()] == duplicatedSymClass) {
+        tlist.push_back(nbr->GetIndex() + 1);
+        cout << nbr->GetIndex() + 1 << " ";
+      }
+    }
+
+    /*
+    std::sort(tlist.begin(), tlist.end());
+    std::vector<unsigned long> map(tlist.size());
+    for (unsigned int i = 0; i < p.map.size(); ++i)
+      for (unsigned int j = 0; j < tlist.size(); ++j)
+        if (p.map[i] == tlist[j] + 1)
+          map[j] = i + 1;
+    */
+
+    cout << "  map = ";
+    std::vector<unsigned long> map;
+    for (unsigned int i = 0; i < p.map.size(); ++i) {
+      if (std::find(tlist.begin(), tlist.end(), p.map[i]) != tlist.end()) {
+        map.push_back(p.map[i]);
+        cout << p.map[i] << " ";
+      }
+    }
+    cout << endl;
 
     return OBStereo::NumInversions(map) % 2;
   }
-
+  
   bool permutationInvertsCisTransCenter(const OBPermutation &p, OBBond *bond, 
       const std::vector<unsigned int> &symmetry_classes)
   {
@@ -1131,6 +1424,8 @@ namespace OpenBabel {
     return false;
   }
 
+  bool isTetrahedral(OBAtom *atom, const std::vector<StereogenicUnit> &units);
+
 
   struct StereoInverted {
     struct Entry {
@@ -1141,10 +1436,40 @@ namespace OpenBabel {
 
     std::vector<Entry> list;
 
-    static StereoInverted compute(OBMol *mol, const std::vector<unsigned int> &symClasses,
-        const OBPermutationGroup &automorphisms)
+    static StereoInverted compute(OBMol *mol, const std::vector<unsigned int> &symClasses, 
+        const std::vector<unsigned int> &canLabels, const OBPermutationGroup &automorphisms)
+        /*const std::vector<StereogenicUnit> &units = std::vector<StereogenicUnit>())*/
     {
       StereoInverted result;
+
+      for (unsigned int i = 0; i < canLabels.size(); ++i)
+        cout << "CAN_LABEL " << i << " = " << canLabels[i] << endl;
+
+      std::map<unsigned long, int> invertedByCanLabels;
+      /*
+      std::vector<OBAtom*>::iterator ia;
+      for (OBAtom *atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia)) {
+        if (!isPotentialTetrahedral(atom))
+          continue;
+ 
+        unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(atom, symClasses);
+        std::vector<unsigned int> tlist;
+        FOR_NBORS_OF_ATOM (nbr, atom) {
+          if (symClasses[nbr->GetIndex()] == duplicatedSymClass) {
+            tlist.push_back(nbr->GetIndex());
+          }
+        }
+        std::sort(tlist.begin(), tlist.end());
+        std::vector<unsigned long> canlist;
+        for (unsigned int i = 0; i < tlist.size(); ++i)
+          //canlist.push_back(canLabels[tlist[i]]);
+          canlist.push_back(std::find(entry.p.map.begin(), entry.p.map.end(), tlist[i]) - entry.p.map.begin());
+        invertedByCanLabels[atom->GetId()] =  OBStereo::NumInversions(canlist) % 2;
+      }
+      */
+
+
+
       // make a list of tetrahedral centers inverted by the automorphism permutations
       for (unsigned int i = 0; i < automorphisms.Size(); ++i) {
         Entry entry;
@@ -1154,8 +1479,18 @@ namespace OpenBabel {
         for (OBAtom *atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia)) {
           if (!isPotentialTetrahedral(atom))
             continue;
-          if (permutationInvertsTetrahedralCenter(entry.p, atom, symClasses))
+          if (permutationInvertsTetrahedralCenter(entry.p, atom, symClasses, canLabels))
             entry.invertedAtoms.push_back(atom);
+ 
+          /*
+          if (invertedByCanLabels[atom->GetId()]) {
+            if (!permutationInvertsTetrahedralCenter(entry.p, atom, symClasses, canLabels))
+              entry.invertedAtoms.push_back(atom);
+          } else {
+            if (permutationInvertsTetrahedralCenter(entry.p, atom, symClasses, canLabels))
+              entry.invertedAtoms.push_back(atom);
+          }
+          */
         }
  
         std::vector<OBBond*>::iterator ib;
@@ -1166,7 +1501,7 @@ namespace OpenBabel {
             entry.invertedBonds.push_back(bond);
         }
      
-        cout << "automorphism " << i+1 << endl;
+        cout << "automorphism " << i+1 << "     "; entry.p.Print();
         cout << "  invertedAtoms: ";
         for (unsigned int l = 0; l < entry.invertedAtoms.size(); ++l)
           cout << entry.invertedAtoms[l]->GetId() << " ";
@@ -1179,21 +1514,88 @@ namespace OpenBabel {
         result.list.push_back(entry); 
       }
       return result;
-    }
 
+    }
+ 
+    /*
+    static StereoInverted compute(OBMol *mol, const std::vector<unsigned int> &symClasses, 
+        const OBPermutationGroup &automorphisms, bool alternative = false,
+        const std::vector<StereogenicUnit> &units = std::vector<StereogenicUnit>())
+    {
+      StereoInverted result;
+      unsigned int total = 0;
+
+*/
+      /*
+      std::map<unsigned long, int> origDescriptors;
+      for (unsigned int i = 0; i < automorphisms.Size(); ++i) {
+        Entry entry;
+        entry.p = automorphisms.At(i);
+
+        std::vector<OBAtom*>::iterator ia;
+        for (OBAtom *atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia)) {
+          if (!isPotentialTetrahedral(atom))
+            continue;
+
+          std::vector<unsigned long> tlist;
+          FOR_NBORS_OF_ATOM (nbr, atom)
+            tlist.push_back(nbr->GetIndex());
+          
+          origDescriptor[atom->GetId()] = OBStereo::NumInversions(tlist) % 2;
+        }
+      }
+      */
+ /*
+      // make a list of tetrahedral centers inverted by the automorphism permutations
+      for (unsigned int i = 0; i < automorphisms.Size(); ++i) {
+        Entry entry;
+        entry.p = automorphisms.At(i);
+
+        std::vector<OBAtom*>::iterator ia;
+        for (OBAtom *atom = mol->BeginAtom(ia); atom; atom = mol->NextAtom(ia)) {
+          if (!isPotentialTetrahedral(atom))
+            continue;
+          if (permutationInvertsTetrahedralCenter(entry.p, atom, symClasses, alternative)) {
+            entry.invertedAtoms.push_back(atom);
+            total++;
+          }
+        }
+ 
+        std::vector<OBBond*>::iterator ib;
+        for (OBBond *bond = mol->BeginBond(ib); bond; bond = mol->NextBond(ib)) {
+          if (!isPotentialCisTrans(bond))
+            continue;
+          if (permutationInvertsCisTransCenter(entry.p, bond, symClasses))
+            entry.invertedBonds.push_back(bond);
+        }
+     
+        cout << "automorphism " << i+1 << "     "; entry.p.Print();
+
+        unsigned int n = entry.p.map.size();
+        Eigen::MatrixXi P = Eigen::MatrixXi::Zero(n, n);
+        for (int j = 0; j < n; ++j) {
+          P(j, entry.p.map.at(j)-1) = 1;
+        }
+        OBPermutation p2(P.transpose());
+        cout << "     inverse " << i+1 << "     "; p2.Print();
+        
+        cout << "  invertedAtoms: ";
+        for (unsigned int l = 0; l < entry.invertedAtoms.size(); ++l)
+          cout << entry.invertedAtoms[l]->GetId() << " ";
+        cout << endl;
+        cout << "  invertedBonds: ";
+        for (unsigned int l = 0; l < entry.invertedBonds.size(); ++l)
+          cout << entry.invertedBonds[l]->GetId() << " ";
+        cout << endl;
+ 
+        result.list.push_back(entry); 
+      }
+      cout << "TOTAL = " << total << endl;
+      return result;
+    }
+*/
 
   };
-
-  void findDuplicatedSymmetryClasses(OBAtom *atom, const std::vector<unsigned int> &symClasses,
-      unsigned int &duplicated1, unsigned int &duplicated2)
-  { 
-    std::vector<unsigned int> nbrSymClasses;
-    FOR_NBORS_OF_ATOM (nbr, atom)
-      nbrSymClasses.push_back(symClasses.at(nbr->GetIndex()));
-    std::sort(nbrSymClasses.begin(), nbrSymClasses.end());
-    duplicated1 = nbrSymClasses[0];
-    duplicated2 = nbrSymClasses[2];
-  }
 
 
 
@@ -1320,7 +1722,39 @@ namespace OpenBabel {
     if (symClasses.size() != mol->NumAtoms())
       return units;
 
-    StereoInverted inverted = StereoInverted::compute(mol, symClasses, automorphisms);
+    std::vector<unsigned int> canLabels;
+    OBGraphSym::CanonicalLabels(mol, symClasses, canLabels);
+
+
+    std::vector<unsigned int> symClasses2 = symClasses;
+    OBPermutationGroup automorphisms2 = automorphisms;
+    /*
+    std::vector<OBAtom*> atoms(mol->NumAtoms());
+    FOR_ATOMS_OF_MOL (atom, mol) {
+      atoms[canLabels[atom->GetIndex()]-1] = &*atom;
+    }
+    mol->RenumberAtoms(atoms);
+
+    std::vector<unsigned int> symClasses2(symClasses.size());
+    for (unsigned int i = 0; i < symClasses.size(); ++i)
+      symClasses2[canLabels[i]-1] = symClasses[i];
+
+    OBPermutationGroup automorphisms2;
+    for (unsigned int i = 0; i < automorphisms.Size(); ++i) {
+      const std::vector<unsigned int> &map1 = automorphisms.At(i).map;
+      std::vector<unsigned int> map2(map1.size());
+      for (unsigned int j = 0; j < map1.size(); ++j) 
+        map2[canLabels[j]-1] = map1[j];
+      
+      automorphisms2.Add(OBPermutation(map2));
+      //automorphisms2.Add( OBPermutation(OBPermutation(canLabels).Apply(automorphisms.At(i))) );
+      //automorphisms2.Add( OBPermutation(automorphisms.At(i).Apply(OBPermutation(canLabels))) );
+    }
+    */
+
+
+
+    StereoInverted inverted = StereoInverted::compute(mol, symClasses2, canLabels, automorphisms2);
     
     std::vector<unsigned long> doneAtoms, doneBonds;
     unsigned int lastSize = units.size();
@@ -1350,7 +1784,7 @@ namespace OpenBabel {
           }
         }
 
-        int classification = classifyTetrahedralNbrSymClasses(symClasses, atom);
+        int classification = classifyTetrahedralNbrSymClasses(symClasses2, atom);
 
         if (!foundPermutation) {
           // true-stereocenter found
@@ -1375,8 +1809,8 @@ namespace OpenBabel {
           switch (classification) {
             case T1123:
               {
-                unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(atom, symClasses);
-                OBAtom *ligandAtom = findAtomWithSymmetryClass(atom, duplicatedSymClass, symClasses);
+                unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(atom, symClasses2);
+                OBAtom *ligandAtom = findAtomWithSymmetryClass(atom, duplicatedSymClass, symClasses2);
                 if (containsAtLeast_1true_2para(ligandAtom, atom, units)) {
                   units.push_back(StereogenicUnit(OBStereo::Tetrahedral, atom->GetId(), true));
                   doneAtoms.push_back(atom->GetId());
@@ -1386,9 +1820,9 @@ namespace OpenBabel {
             case T1122:
               {
                 unsigned int duplicatedSymClass1, duplicatedSymClass2;
-                findDuplicatedSymmetryClasses(atom, symClasses, duplicatedSymClass1, duplicatedSymClass2);
-                OBAtom *ligandAtom1 = findAtomWithSymmetryClass(atom, duplicatedSymClass1, symClasses);
-                OBAtom *ligandAtom2 = findAtomWithSymmetryClass(atom, duplicatedSymClass2, symClasses);
+                findDuplicatedSymmetryClasses(atom, symClasses2, duplicatedSymClass1, duplicatedSymClass2);
+                OBAtom *ligandAtom1 = findAtomWithSymmetryClass(atom, duplicatedSymClass1, symClasses2);
+                OBAtom *ligandAtom2 = findAtomWithSymmetryClass(atom, duplicatedSymClass2, symClasses2);
                 if (containsAtLeast_1true_2para(ligandAtom1, atom, units) &&
                     containsAtLeast_1true_2para(ligandAtom2, atom, units)) {
                   units.push_back(StereogenicUnit(OBStereo::Tetrahedral, atom->GetId(), true));
@@ -1400,8 +1834,8 @@ namespace OpenBabel {
             case T1112:
             case T1111:
               {
-                unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(atom, symClasses);
-                OBAtom *ligandAtom = findAtomWithSymmetryClass(atom, duplicatedSymClass, symClasses);
+                unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(atom, symClasses2);
+                OBAtom *ligandAtom = findAtomWithSymmetryClass(atom, duplicatedSymClass, symClasses2);
                 if (containsAtLeast_2true_2paraAssemblies(ligandAtom, atom, units)) {
                   units.push_back(StereogenicUnit(OBStereo::Tetrahedral, atom->GetId(), true));
                   doneAtoms.push_back(atom->GetId());
@@ -1436,8 +1870,8 @@ namespace OpenBabel {
           }
         }
 
-        int beginClassification = classifyCisTransNbrSymClasses(symClasses, bond, bond->GetBeginAtom());
-        int endClassification = classifyCisTransNbrSymClasses(symClasses, bond, bond->GetEndAtom());
+        int beginClassification = classifyCisTransNbrSymClasses(symClasses2, bond, bond->GetBeginAtom());
+        int endClassification = classifyCisTransNbrSymClasses(symClasses2, bond, bond->GetEndAtom());
       
         if (!foundPermutation) {
           // true-stereocenter found
@@ -1549,10 +1983,7 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
   std::vector<IndexClassPair> pairs;
   for (unsigned int i = 0; i < set.size(); ++i) {
     const StereogenicUnit &unit = set[i];
-    if (unit.type == OBStereo::Tetrahedral) {
-      OBAtom *center = mol->GetAtomById(unit.id);
-      pairs.push_back(IndexClassPair(i, symmetry_classes[center->GetIndex()]));
-    }  
+    pairs.push_back(IndexClassPair(i, getSymClass(unit, mol, symmetry_classes)));
   }
 
   std::sort(pairs.begin(), pairs.end(), CompareIndexClassPair);
@@ -1695,19 +2126,64 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
     typedef std::vector<StereogenicUnit>::const_iterator UnitIter;
       
     std::vector< std::vector<StereogenicUnit> > sets;
-    StereoInverted inverted = StereoInverted::compute(mol, symClasses, automorphisms);
+
+    std::vector<unsigned int> canLabels;
+    OBGraphSym::CanonicalLabels(mol, symClasses, canLabels);
+    std::vector<unsigned int> symClasses2 = symClasses;
+    OBPermutationGroup automorphisms2 = automorphisms;
+ 
+    /*
+    std::vector<OBAtom*> atoms(mol->NumAtoms());
+    FOR_ATOMS_OF_MOL (atom, mol) {
+      atoms[canLabels[atom->GetIndex()]-1] = &*atom;
+    }
+    mol->RenumberAtoms(atoms);
+
+    std::vector<unsigned int> symClasses2(symClasses.size());
+    for (unsigned int i = 0; i < symClasses.size(); ++i)
+      symClasses2[canLabels[i]-1] = symClasses[i];
+
+    OBPermutationGroup automorphisms2;
+    for (unsigned int i = 0; i < automorphisms.Size(); ++i) {
+      const std::vector<unsigned int> &map1 = automorphisms.At(i).map;
+      std::vector<unsigned int> map2(map1.size());
+      for (unsigned int j = 0; j < map1.size(); ++j) 
+        map2[canLabels[j]-1] = map1[j];
+      
+      automorphisms2.Add(OBPermutation(map2));
+      //automorphisms2.Add( OBPermutation(OBPermutation(canLabels).Apply(automorphisms.At(i))) );
+      //automorphisms2.Add( OBPermutation(automorphisms.At(i).Apply(OBPermutation(canLabels))) );
+    }
+    */
+ 
+    StereoInverted inverted = StereoInverted::compute(mol, symClasses2, canLabels, automorphisms2);
    
 
+    //DepictAutomorphisms(mol, automorphisms, "img/automorphism");
     // Order the stereogenic units by symmetry class
-    std::vector<StereogenicUnit> ordered = orderSetBySymmetryClasses(mol, units, symClasses);
+    std::vector<StereogenicUnit> ordered = orderSetBySymmetryClasses(mol, units, symClasses2);
 
+    for (UnitIter unit = ordered.begin(); unit != ordered.end(); ++unit) {
+      if (unit->type != OBStereo::Tetrahedral)
+        continue;
+      OBAtom *atom = mol->GetAtomById(unit->id);
+      cout << "UNIT: id = " << atom->GetId() << "  nbr_idxs = ";
+      FOR_NBORS_OF_ATOM (nbr, atom)
+        cout << nbr->GetIdx() << " ";
+      cout << "  nbr_symmetry_classes = ";
+      FOR_NBORS_OF_ATOM (nbr, atom)
+        cout << symClasses2[nbr->GetIndex()] << " ";
+      cout << endl;
+    }
+
+    cout << "ordered.size = " << ordered.size() << endl;
     unsigned int lastSymClass = std::numeric_limits<unsigned int>::max();
     std::vector<unsigned long> doneAtoms, doneBonds, currentAtoms, currentBonds;
     for (UnitIter unit = ordered.begin(); unit != ordered.end(); ++unit) {
       // Some logic to delay storing done stereogenic units. Once all
       // units of the same symmetry class are done, the currentXX lists are
       // moved to the doneXX lists.
-      unsigned int currentSymClass = getSymClass(*unit, mol, symClasses);
+      unsigned int currentSymClass = getSymClass(*unit, mol, symClasses2);
       if (currentSymClass != lastSymClass) {
         for (unsigned int i = 0;  i < currentAtoms.size(); ++i)
           doneAtoms.push_back(currentAtoms[i]);
@@ -1727,7 +2203,8 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
       // Select all permutations which invert the current unit
       std::vector<StereoInverted::Entry> selection;
       unsigned int minNumInversions = units.size();
-      for (unsigned int i = 0; i < automorphisms.Size(); ++i) {
+
+      for (unsigned int i = 0; i < automorphisms2.Size(); ++i) {
         const std::vector<OBAtom*> &atoms = inverted.list[i].invertedAtoms;
         const std::vector<OBBond*> &bonds = inverted.list[i].invertedBonds;
         unsigned int numInversions = atoms.size() + bonds.size();
@@ -1761,6 +2238,7 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
         continue;
       }
 
+      /*
       cout << "  First selection" << endl;
       for (unsigned int i = 0; i < selection.size(); ++i) {
         const StereoInverted::Entry &entry = selection[i];
@@ -1774,7 +2252,7 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
           cout << entry.invertedBonds[l]->GetId() << " ";
         cout << endl;
       }
- 
+      */ 
 
       // Select the permutations which cause the minimal number of inversions
       std::vector<StereoInverted::Entry> finalSelection;
@@ -1789,7 +2267,6 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
       }
 
       cout << "minNumInversions = " << minNumInversions << endl;
-
       cout << "  Final selection" << endl;
       for (unsigned int i = 0; i < finalSelection.size(); ++i) {
         const StereoInverted::Entry &entry = finalSelection[i];
@@ -1813,6 +2290,8 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
             continue;
           if (std::find(setAtoms.begin(), setAtoms.end(), atoms[j]->GetId()) != setAtoms.end())
             continue;
+          //if (std::find(currentAtoms.begin(), currentAtoms.end(), atoms[j]->GetId()) != currentAtoms.end())
+          //  continue;
           set.push_back(StereogenicUnit(OBStereo::Tetrahedral, atoms[j]->GetId()));
           currentAtoms.push_back(atoms[j]->GetId());
           setAtoms.push_back(atoms[j]->GetId());
@@ -1832,7 +2311,6 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
         cout << set[k].id << " ";
       }
       cout << "]" << endl;
-    
     }
     
     cout << "BEFORE SETS: ";
@@ -1845,15 +2323,14 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
       cout << "]  ";
     }
     cout << endl;
-
     
     // Merge overlapping sets (with same symmetry classes!)
     for (unsigned int i = 0; i  < sets.size(); ++i) {
       const std::vector<StereogenicUnit> &iSet = sets[i];
-      mergeSets(sets, iSet, mol, symClasses);
+      mergeSets(sets, iSet, mol, symClasses2);
     }
     // Remove duplicated sets and subsets
-    removeDuplicates(sets, mol, symClasses);
+    removeDuplicates(sets, mol, symClasses2);
 
     cout << "FINAL SETS: ";
     for (unsigned int i = 0; i  < sets.size(); ++i) {

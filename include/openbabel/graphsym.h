@@ -55,9 +55,11 @@ namespace OpenBabel {
       void FindRingAtoms(OBBitVec &ring_atoms);
       void CreateNewClassVector(std::vector<std::pair<OBAtom*,unsigned int> > &vp1,
                                 std::vector<std::pair<OBAtom*,unsigned int> > &vp2);
+      static void CreateNewClassVector(OBMol *mol, std::vector<std::pair<OBAtom*,unsigned int> > &vp1,
+                                       std::vector<std::pair<OBAtom*,unsigned int> > &vp2);
       void GetGIVector(std::vector<unsigned int> &vid);
       bool GetGTDVector(std::vector<int> &gtd);
-      void CountAndRenumberClasses(std::vector<std::pair<OBAtom*,unsigned int> > &vp, unsigned int &count);
+      static void CountAndRenumberClasses(std::vector<std::pair<OBAtom*,unsigned int> > &vp, unsigned int &count);
       int ExtendInvariants(std::vector<std::pair<OBAtom*, unsigned int> > &symmetry_classes, bool breakChiralTies);
                            
       int CalculateSymmetry(std::vector<unsigned int> &symmetry_classes, bool breakChiralTies);
@@ -91,12 +93,16 @@ namespace OpenBabel {
        *
        * @return FIXME
        */
-      void CanonicalLabels(vector<unsigned int> &symmetry_classes);
+      void CanonicalLabels(vector<unsigned int> &canonical_labels);
+      
+      static void CanonicalLabels(OBMol *mol, const std::vector<unsigned int> &symmetry_classes, 
+          std::vector<unsigned int> &canonical_labels);
       
       
       int Iterate(vector<unsigned int> &symmetry_classes);
 
       OBPermutationGroup m_G;
+      std::vector<unsigned int> m_canonLabels;
       std::vector<StereogenicUnit> m_stereoUnits;
       std::vector< vector<StereogenicUnit> > m_interdependentSets;
      
