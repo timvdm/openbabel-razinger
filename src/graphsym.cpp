@@ -640,6 +640,13 @@ bool isTetrahedral(OBAtom *atom, const std::vector<StereogenicUnit> &units)
   std::vector<OBBitVec> mergeRings(OBMol *mol);
   bool isInSameMergedRing(const std::vector<OBBitVec> &mergedRings, unsigned int idx1, unsigned int idx2);
 
+unsigned int countClasses(const std::vector<unsigned int> &symmetry_classes)
+{
+  std::vector<unsigned int> copy(symmetry_classes);
+  std::sort(copy.begin(), copy.end());
+  return std::unique(copy.begin(), copy.end()) - copy.begin();
+}
+
 void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int> > &atom_sym_classes)
 {
   cout << "ENTER NewBreakChiralTies..." << endl;
@@ -653,11 +660,25 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
 
 //  assert( _pmol->NumAtoms() == atom_sym_classes.size() );
 
-  //DepictSymmetryClasses(_pmol, symmetry_classes, "img/NewBreakChiralTies");
+  unsigned int beforeCount = countClasses(symmetry_classes);
+  //DepictSymmetryClasses(_pmol, symmetry_classes, "img/NewBreakChiralTies_ENTER");
 
   std::vector<unsigned int> symCopy = symmetry_classes;
   std::sort(symCopy.begin(), symCopy.end());
   cout << "nclasses = " << std::unique(symCopy.begin(), symCopy.end()) - symCopy.begin() << endl;
+
+  //if (_pmol->HasChiralityPerceived()) {
+    bool hasAtLeastOneDefined = false;
+    OBStereoFacade sf(_pmol, false);
+    FOR_ATOMS_OF_MOL (atom, _pmol) {
+      if (sf.HasTetrahedralStereo(atom->GetId())) {
+        hasAtLeastOneDefined = true;
+        break;
+      }
+    }
+    if (!hasAtLeastOneDefined)
+      return;
+  //}
 
   // Compute the automorphisms and derived stereogenic units only once.
   // Computing this every time would result in different interdependent 
@@ -676,23 +697,6 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
       m_stereoUnits, symmetry_classes, m_G);
   }
 
-
-  // If there are no unresolved stereocenters, we're done
-  // Unresolved: classification != T1234
-  // This is only for performance and not part of the algorithm.
-  bool foundTie = false;
-  for (unsigned int i = 0; i < m_stereoUnits.size(); ++i) {
-    const StereogenicUnit &unit = m_stereoUnits[i];
-    if (unit.type == OBStereo::Tetrahedral) {
-      OBAtom *atom = _pmol->GetAtomById(unit.id);
-      if (classifyTetrahedralNbrSymClasses(symmetry_classes, atom) != T1234) {
-        foundTie = true;
-      }
-    }
-  }
-  if (!foundTie)
-    return;
-
   // Determine stereochemistry from coordinates if needed
   if (!_pmol->HasChiralityPerceived()) {
     switch (_pmol->GetDimension()) {
@@ -708,7 +712,23 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
         TetrahedralFrom0D(_pmol, m_stereoUnits);
         break;
     }
-  } 
+  }
+ 
+  // If there are no unresolved stereocenters, we're done
+  // Unresolved: classification != T1234
+  // This is only for performance and not part of the algorithm.
+  bool foundTie = false;
+  for (unsigned int i = 0; i < m_stereoUnits.size(); ++i) {
+    const StereogenicUnit &unit = m_stereoUnits[i];
+    if (unit.type == OBStereo::Tetrahedral) {
+      OBAtom *atom = _pmol->GetAtomById(unit.id);
+      if (classifyTetrahedralNbrSymClasses(symmetry_classes, atom) != T1234) {
+        foundTie = true;
+      }
+    }
+  }
+  if (!foundTie)
+    return;
 
   //////////////////////////////////////////////////////////////////////////////
   //
@@ -771,7 +791,7 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
   // substracting 1 from a symmetry class and iterating to propagate the 
   // changes.
   for (unsigned int j = 0; j < symmetry_classes.size(); ++j)
-    symmetry_classes[j] *= 2;
+    symmetry_classes[j] *= 3;
 
   // Start the actual tie breaking
   bool brokenTies = false;
@@ -821,6 +841,8 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
     for (unsigned int j = 0; j < breakUnits.size(); ++j) {
       const StereogenicUnit &unit = breakUnits[j];
 
+      cout << "RESOLV BREAK UNIT  " << unit.id << endl;
+
 
       if (unit.type == OBStereo::Tetrahedral) {
         OBAtom *center = _pmol->GetAtomById(unit.id);
@@ -834,6 +856,7 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
         OBStereoFacade stereoFacade(_pmol, false);
         if (!stereoFacade.HasTetrahedralStereo(unit.id))
           continue;
+        cout << "..." << endl;
         OBTetrahedralStereo::Config idConfig = stereoFacade.GetTetrahedralStereo(unit.id)->GetConfig();
 
         switch (breakUnitsClassification) {
@@ -936,6 +959,7 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
             break;
           case T1122:
               cout << "T1122" << endl;
+              // old BreakChiralTies will take care of this...
               break;
           case T1112:
             {
@@ -995,7 +1019,7 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
                 }
                 cout << "dv1 = " << dv1 << endl;
                 cout << "dv2 = " << dv2 << endl;
-                cout << "dv3 = " << dv2 << endl;
+                cout << "dv3 = " << dv3 << endl;
 
                 // The highest descriptor vector value goes first
                 brokenTies = true;
@@ -1029,6 +1053,7 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
             }
             break;
           default:
+            // old BreakChiralTies will take care of this...
             break;
         }
      
@@ -1047,7 +1072,13 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
     atom_sym_classes[i].second =  symmetry_classes[atom_sym_classes[i].first->GetIndex()];
   
     
+  //DepictSymmetryClasses(_pmol, symmetry_classes, "img/NewBreakChiralTies_EXIT");
   cout << "EXIT NewBreakChiralTies..." << endl;
+  
+  unsigned int afterCount = countClasses(symmetry_classes);
+
+  if (afterCount > beforeCount)
+    NewBreakChiralTies(atom_sym_classes);
 }
 
 

@@ -80,11 +80,25 @@ namespace OpenBabel {
 
   OBPermutationGroup FindAutomorphisms(OpenBabel::OBMol *obmol, const std::vector<unsigned int> &symClasses)
   {
+    std::vector<unsigned int> symClassesUniqueH = symClasses;
+    for (unsigned int i = 0; i < symClasses.size(); ++i)
+      symClassesUniqueH[i] = 4 * symClasses[i];
+
+    FOR_ATOMS_OF_MOL (atom, obmol) {
+      int hInc = 0;
+      FOR_NBORS_OF_ATOM (nbr, &*atom) {
+        if (nbr->IsHydrogen()) {
+          symClassesUniqueH[nbr->GetIndex()] += hInc;
+          ++hInc;
+        }
+      }
+    }
+
     // construct the bliss graph
     bliss::Graph g;
     std::map<OpenBabel::OBAtom*, unsigned int> atom2index;
     FOR_ATOMS_OF_MOL (atom, obmol) {
-      atom2index[&*atom] = g.add_vertex(symClasses.at(atom->GetIndex()));
+      atom2index[&*atom] = g.add_vertex(symClassesUniqueH.at(atom->GetIndex()));
     }
     FOR_BONDS_OF_MOL (bond, obmol) {
       g.add_edge(atom2index[bond->GetBeginAtom()], atom2index[bond->GetEndAtom()]);

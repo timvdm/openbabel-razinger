@@ -1094,8 +1094,15 @@ namespace OpenBabel {
   
     OBAtom *otherCenter = mol->GetAtom(p.map[center->GetIndex()]);
 
+    unsigned int loopCount = 0;
     bool carry = false;
     while (otherCenter != center) {
+      if (loopCount > 100) {
+        otherCenter = center;
+        carry = false;
+        break;
+      }
+      loopCount++;
       if (isInSameMergedRing(mergedRings, center->GetIndex() + 1, otherCenter->GetIndex() + 1)) {
         otherCenter = center;
         break;
