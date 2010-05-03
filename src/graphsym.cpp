@@ -469,6 +469,21 @@ namespace OpenBabel {
           }
         }
       }
+      if (set1[i].type == OBStereo::CisTrans) {
+        for (unsigned int j = 0; j < set2.size(); ++j) {
+          if (set2[i].type != OBStereo::CisTrans)
+            continue;
+
+          OBBond *iBond = mol->GetBondById(set1[i].id);
+          OBBond *jBond = mol->GetBondById(set2[j].id);
+
+          if (symmetry_classes[iBond->GetBeginAtom()->GetIndex()] == symmetry_classes[jBond->GetBeginAtom()->GetIndex()] ||
+              symmetry_classes[iBond->GetBeginAtom()->GetIndex()] == symmetry_classes[jBond->GetEndAtom()->GetIndex()]) {
+            found = true;
+            break;
+          }
+        }
+      }
 
       if (!found)
         return false;
@@ -584,6 +599,15 @@ std::vector<StereogenicUnit> orderSetByRing(OBMol *mol, const OBBitVec &fragment
   {
     std::vector<unsigned long> refs = config.refs;
     refs.insert(refs.begin(), config.from);
+    if (OBStereo::NumInversions(refs) % 2)
+      return 1;
+    else
+      return 0; 
+  }
+ 
+  int findDescriptor(const OBCisTransStereo::Config &config)
+  {
+    std::vector<unsigned long> refs = config.refs;
     if (OBStereo::NumInversions(refs) % 2)
       return 1;
     else
@@ -876,6 +900,152 @@ void BreakUnit(OBMol *mol, const StereogenicUnit &unit, std::vector<unsigned int
 
   }
 
+  if (unit.type == OBStereo::CisTrans) {
+    OBBond *bond = mol->GetBondById(unit.id);
+    // the center might already be resolved by numbering a previous breakUnit...
+    if (classifyCisTransNbrSymClasses(symmetry_classes, bond, bond->GetBeginAtom()) == C12 &&
+        classifyCisTransNbrSymClasses(symmetry_classes, bond, bond->GetEndAtom()) == C12) {
+      cout << "XXXXXXXXXX" << endl;
+      return;
+    }
+
+    // Get the config struct for the center
+    OBStereoFacade stereoFacade(mol, false);
+    if (!stereoFacade.HasCisTransStereo(unit.id))
+      return;
+    cout << "..." << endl;
+    OBCisTransStereo::Config idConfig = stereoFacade.GetCisTransStereo(unit.id)->GetConfig();
+
+    OBAtom *atom = bond->GetBeginAtom();
+    while (1) {
+    
+      if (classifyCisTransNbrSymClasses(symmetry_classes, bond, atom) == C12) {
+        if (atom == bond->GetEndAtom())
+          break;
+        atom = bond->GetEndAtom();
+        continue;
+      }
+
+    
+    switch (breakUnitsClassification) {
+      case C11:
+        {
+          cout << "C11" << endl;
+          // Find the duplicated symmetry class and equivalent neighbor atoms
+          unsigned int duplicatedSymClass = findDuplicatedSymmetryClass(atom, symmetry_classes);
+          cout << "duplicatedSymClass = " << duplicatedSymClass << endl;
+          std::vector<OBAtom*> equivalentNbrs;
+          FOR_NBORS_OF_ATOM (nbr, atom)
+            if (duplicatedSymClass == symmetry_classes[nbr->GetIndex()])
+              equivalentNbrs.push_back(&*nbr);
+
+          cout << "RESOLVING: " << bond->GetId() << endl;
+
+          cout << "equivalentNbrs.size()  = " << equivalentNbrs.size() << endl;
+
+          assert( equivalentNbrs.size() == 2 );
+
+          // Get the fragments for the equivalent neighbor atoms
+          OBBitVec fragment1 = getFragment(equivalentNbrs[0], atom);
+          OBBitVec fragment2 = getFragment(equivalentNbrs[1], atom);
+
+          // Check if all stereocenters in the ligands are resolved
+          bool allStereoResolved = false;
+          /*
+          bool allStereoResolved = true;
+          for (unsigned int k = 0; k < mol->NumAtoms(); ++k) {
+            OBAtom *fragAtom = mol->GetAtom(k+1);
+            if (fragment1.BitIsOn(fragAtom->GetId()) || fragment2.BitIsOn(fragAtom->GetId())) {
+              if (!isTetrahedral(fragAtom, stereoUnits))
+                continue;
+              if (classifyTetrahedralNbrSymClasses(symmetry_classes, fragAtom) != T1234) {
+                allStereoResolved = false;
+                cout << "not resolved: " << fragAtom->GetId() << endl; 
+              }
+            }
+          }
+          */
+
+          if (allStereoResolved) {
+            /*
+            cout << "All stereo resolved for fragments" << endl;
+            // If all stereocenters in both ligands are resolved, we need to take 
+            // the descriptor values for the ligands into account.
+            int dv1, dv2; // descriptor vector values
+
+            if (fragment1 == fragment2) {
+              // special case: e.g. 1,3-hydroxy-5-methyl-cyclohexane
+              dv1 = findDescriptorVectorValue(mol, fragment1, 
+                  orderSetByFragment(equivalentNbrs[0], center, stereoUnits), symmetry_classes);
+              dv2 = findDescriptorVectorValue(mol, fragment2, 
+                  orderSetByFragment(equivalentNbrs[1], center, stereoUnits), symmetry_classes);
+            }  else {
+              std::vector<StereogenicUnit> ordered(orderSetBySymmetryClasses(mol, stereoUnits, symmetry_classes));
+              dv1 = findDescriptorVectorValue(mol, fragment1, ordered, symmetry_classes);
+              dv2 = findDescriptorVectorValue(mol, fragment2, ordered, symmetry_classes);
+            }
+            cout << "dv1 = " << dv1 << endl;
+            cout << "dv2 = " << dv2 << endl;
+
+            // The highest descriptor vector value goes first
+            brokenTies = true;
+            if (dv1 > dv2) {
+              symmetry_classes[equivalentNbrs[0]->GetIndex()] -= 1;
+            } else
+              if (dv2 > dv1) {
+                symmetry_classes[equivalentNbrs[1]->GetIndex()] -= 1;                
+              } 
+
+            // If the ligands have the same descriptor vector value, the 
+            // center is not a real stereocenter and we mark it unspecified.
+            if (dv1 == dv2) {
+              if (force) {
+                symmetry_classes[equivalentNbrs[0]->GetIndex()] -= 1;
+              } else {
+                idConfig.specified = false;
+                stereoFacade.GetTetrahedralStereo(unit.id)->SetConfig(idConfig);
+              }
+            }
+            */
+          } else {
+            cout << "All stereo NOT resolved for fragments" << endl;
+            // If all stereocenters in both ligand are not resolved yet,
+            // we can still choose the descriptor for the center. We always
+            // choose the 1 descriptor. This choosing happens by numbering 
+            // the equivalent atoms.
+
+            brokenTies = true;
+
+            OBCisTransStereo::Config symConfig;
+            // try numbering 1
+            symmetry_classes[equivalentNbrs[0]->GetIndex()] -= 1;
+            symConfig = idConfig;
+            IdsToSymClasses(mol, symConfig, symmetry_classes);
+
+            if (!findDescriptor(symConfig)) {
+              symmetry_classes[equivalentNbrs[0]->GetIndex()] += 1; // restore
+              // try numbering 2
+              symmetry_classes[equivalentNbrs[1]->GetIndex()] -= 1;
+              symConfig = idConfig;
+              IdsToSymClasses(mol, symConfig, symmetry_classes);
+            }
+
+            assert(findDescriptor(symConfig));
+          }
+        }
+        break;
+      default:
+        // old BreakChiralTies will take care of this...
+        break;
+    }
+    
+      if (atom == bond->GetEndAtom())
+        break;
+      atom = bond->GetEndAtom();
+    }
+
+  }
+
 
 }
 
@@ -909,6 +1079,14 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
         }
       }
     }
+    FOR_BONDS_OF_MOL (bond, _pmol) {
+      if (sf.HasCisTransStereo(bond->GetId())) {
+        if (sf.GetCisTransStereo(bond->GetId())->GetConfig().specified) {
+          hasAtLeastOneDefined = true;
+          break;
+        }
+      }
+    }
     if (!hasAtLeastOneDefined)
       return;
   //}
@@ -933,13 +1111,16 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
       case 2:
         _pmol->DeleteData(OBGenericDataType::StereoData);
         TetrahedralFrom2D(_pmol, m_stereoUnits);
+        CisTransFrom2D(_pmol, m_stereoUnits);
         break;
       case 3:
         _pmol->DeleteData(OBGenericDataType::StereoData);
         TetrahedralFrom3D(_pmol, m_stereoUnits);
+        CisTransFrom3D(_pmol, m_stereoUnits);
         break;
       default:
         TetrahedralFrom0D(_pmol, m_stereoUnits);
+        CisTransFrom0D(_pmol, m_stereoUnits);
         break;
     }
   }
@@ -956,6 +1137,16 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
         foundTie = true;
       }
     }
+    if (unit.type == OBStereo::CisTrans) {
+      OBBond *bond = _pmol->GetBondById(unit.id);
+      if (classifyCisTransNbrSymClasses(symmetry_classes, bond, bond->GetBeginAtom()) != C12) {
+        foundTie = true;
+      }
+      if (classifyCisTransNbrSymClasses(symmetry_classes, bond, bond->GetEndAtom()) != C12) {
+        foundTie = true;
+      }
+    }
+ 
   }
   if (!foundTie)
     return;
@@ -1155,7 +1346,7 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
 
 
 
-            DepictSymmetryClasses(_pmol, symClassesCanon, "img/NewBreakChiralTies");
+            //DepictSymmetryClasses(_pmol, symClassesCanon, "img/NewBreakChiralTies");
             symmetry_classes = symClassesCanon;
 
             for (unsigned int i = 0; i < atom_sym_classes.size(); ++i)
@@ -1187,6 +1378,24 @@ void OBGraphSym::NewBreakChiralTies(std::vector<std::pair<OBAtom*, unsigned int>
             break;          
           }
         }
+        if (unit.type == OBStereo::CisTrans) {
+          OBBond *bond = _pmol->GetBondById(unit.id);
+          int classification = classifyCisTransNbrSymClasses(symmetry_classes, bond, bond->GetBeginAtom());
+          if (classification != C12) {
+            breakUnitsClassification = classification; // will be the same for all units...
+            breakUnits.push_back(unit);
+            cout << unit.id << " ";
+            break;          
+          }
+          classification = classifyCisTransNbrSymClasses(symmetry_classes, bond, bond->GetEndAtom());
+          if (classification != C12) {
+            breakUnitsClassification = classification; // will be the same for all units...
+            breakUnits.push_back(unit);
+            cout << unit.id << " ";
+            break;          
+          }
+        }
+ 
       }
     }
     cout << endl;

@@ -238,6 +238,19 @@ int main(int argc, char **argv)
   OB_ASSERT( doShuffleTestFile("stereo/canon21.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/canon22.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/canon23.mol") );
+  
+  
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans1.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans2.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans3.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans4.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans5.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans6.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans7.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans8.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans9.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans15.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans16.mol") );
 
 
   //OB_ASSERT( doShuffleTest("") );
