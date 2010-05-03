@@ -34,7 +34,7 @@ bool doShuffleTest(const std::string &smiles)
   OBMol mol;
   OBConversion canConv, smiConv;
   OB_REQUIRE( canConv.SetInFormat("smi") );
-  OB_REQUIRE( canConv.SetOutFormat("can2") );
+  OB_REQUIRE( canConv.SetOutFormat("can") );
   OB_REQUIRE( smiConv.SetOutFormat("smi") );
   // read a smiles string
   OB_REQUIRE( canConv.ReadString(&mol, smiles) );
@@ -80,7 +80,7 @@ bool doShuffleTestFile(const std::string &filename)
   OB_REQUIRE( format );
   OB_REQUIRE( canConv.SetInFormat(format) );
   OB_REQUIRE( canConv.ReadFile(&mol, file) );
-  OB_REQUIRE( canConv.SetOutFormat("can2") );
+  OB_REQUIRE( canConv.SetOutFormat("can") );
   OB_REQUIRE( smiConv.SetOutFormat("smi") );
 
   std::string smiles = canConv.WriteString(&mol);
@@ -124,7 +124,7 @@ bool doShuffleTestMultiFile(const std::string &filename)
   OBFormat *format = canConv.FormatFromExt(file.c_str());
   OB_REQUIRE( format );
   OB_REQUIRE( canConv.SetInFormat(format) );
-  OB_REQUIRE( canConv.SetOutFormat("can2") );
+  OB_REQUIRE( canConv.SetOutFormat("can") );
 
   testCount++;
 
@@ -160,11 +160,6 @@ int main(int argc, char **argv)
     return 0;
   }
 
-  ///////////////////////////////////////////////////////////////////////
-  //
-  // Tetrahedral
-  //
-  ///////////////////////////////////////////////////////////////////////
   OB_ASSERT( doShuffleTestMultiFile("stereo/shuffle_multi1.smi") );
   OB_ASSERT( doShuffleTestMultiFile("stereo/shuffle_multi2.smi") );
 
@@ -175,20 +170,12 @@ int main(int argc, char **argv)
   OB_ASSERT( doShuffleTest("[C@@H]1([C@H]([C@H]([C@H]1C)C)C)C") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D1.smi") );
   
-  // 
-  // Enantiomers only
-  //
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_5_spec.mol") );
   
- 
-  //
-  // Diastereomers only
-  //
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanediol_D1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanediol_D2.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclohexanetriol_D2.mol") );
-  // These work for mol files, not for smiles????? See graphsymtest.cpp
   OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D1.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D2.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/cyclobutane_D3.mol") );
@@ -198,7 +185,6 @@ int main(int argc, char **argv)
   OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@H]([C@@H]1C)C)C)C") );	
   OB_ASSERT( doShuffleTest("[C@@H]1([C@@H]([C@@H]([C@H]1C)C)C)C") );	
 
-  // Mixed: enantiomers + diastereomers
   OB_ASSERT( doShuffleTestFile("stereo/inositol_cis.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/inositol_epi.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/inositol_allo.mol") );
@@ -221,21 +207,37 @@ int main(int argc, char **argv)
   
   OB_ASSERT( doShuffleTest("O[C@H]1[C@@H](O)[C@H](O)[C@H](O)[C@H](O)[C@H]1O") );
   
-  
-  ///////////////////////////////////////////////////////////////////////
-  //
-  // CisTrans ( + Tetrahedral )
-  //
-  ///////////////////////////////////////////////////////////////////////
-
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_30.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_34.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_35.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_36.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_37.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_38.mol") );
-//  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_39.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/razinger_fig7_39.mol") );
 
+  OB_ASSERT( doShuffleTestFile("stereo/canon1.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon2.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon3.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon4.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon5.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon6.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon7.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon8.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon9.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon10.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon11.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon12.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon13.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon14.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon15.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon16.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon17.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon18.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon19.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon20.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon21.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon22.mol") );
+  OB_ASSERT( doShuffleTestFile("stereo/canon23.mol") );
 
 
   //OB_ASSERT( doShuffleTest("") );
