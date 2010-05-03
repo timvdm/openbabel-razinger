@@ -1902,7 +1902,27 @@ std::vector<StereogenicUnit> orderSetBySymmetryClasses(OBMol *mol, const std::ve
       cout << "]  ";
     }
     cout << endl;
-    
+   
+    FOR_RINGS_OF_MOL (ring, mol) {
+      if (ring->_path.size() != 4)
+        continue;
+      bool allSameSymClass = true;
+      unsigned int symClass = symClasses[ring->_path[0] - 1];
+      for (unsigned int i = 0; i < ring->_path.size(); ++i) {
+        if (symClass != symClasses[ring->_path[i] - 1])
+          allSameSymClass = false;
+        if (!isTetrahedral(mol->GetAtom(ring->_path[i]), units))
+          allSameSymClass = false;
+      }
+      if (!allSameSymClass)
+        continue;
+
+      std::vector<StereogenicUnit> set;
+      for (unsigned int i = 0; i < ring->_path.size(); ++i)
+        set.push_back(StereogenicUnit(OBStereo::Tetrahedral, mol->GetAtom(ring->_path[i])->GetId(), true));
+      sets.push_back(set);
+    }
+
     // Merge overlapping sets (with same symmetry classes!)
     for (unsigned int i = 0; i  < sets.size(); ++i) {
       const std::vector<StereogenicUnit> &iSet = sets[i];
