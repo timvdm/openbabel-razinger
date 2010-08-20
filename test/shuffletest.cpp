@@ -159,7 +159,11 @@ int main(int argc, char **argv)
     OB_ASSERT( doShuffleTestFile(argv[1]) );
     return 0;
   }
+  
+  
+  OB_ASSERT( doShuffleTest("n1ccc(cc1)C12C[C@H]3C[C@H](C[C@H](C3)C2)C1") );
 
+  /*
   OB_ASSERT( doShuffleTestMultiFile("stereo/shuffle_multi1.smi") );
   OB_ASSERT( doShuffleTestMultiFile("stereo/shuffle_multi2.smi") );
 
@@ -251,6 +255,7 @@ int main(int argc, char **argv)
   OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans9.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans15.mol") );
   OB_ASSERT( doShuffleTestFile("stereo/canon_cistrans16.mol") );
+  */
 
 
   //OB_ASSERT( doShuffleTest("") );

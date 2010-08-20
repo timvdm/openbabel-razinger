@@ -20,8 +20,6 @@ GNU General Public License for more details.
 #include <openbabel/alias.h>
 #include <openbabel/depict/depict.h>
 #include <openbabel/depict/painter.h>
-#include <openbabel/depict/cairopainter.h>
-#include <openbabel/depict/magickpainter.h>
 #include <openbabel/depict/svgpainter.h>
 #include <algorithm> // std::reverse
 #include <iterator> // std::istream_iterator
@@ -648,8 +646,7 @@ namespace OpenBabel
 
     std::ofstream ofs(ss.str().c_str());
 
-    MagickPainter painter;
-    //SVGPainter painter(ofs);
+    SVGPainter painter(ofs);
     OBDepict depict(&painter);
     depict.SetBondLength(40);
     depict.DrawMolecule(mol);
@@ -685,9 +682,8 @@ namespace OpenBabel
       std::stringstream ss;
       ss << prefix << "_" << n << "_" << i+1 << ".png";
 
-      MagickPainter painter;
       std::ofstream ofs(ss.str().c_str());
-      //SVGPainter painter(ofs);
+      SVGPainter painter(ofs);
 
       OBDepict depict(&painter);
       depict.SetBondLength(40);
